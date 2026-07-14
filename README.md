@@ -5,6 +5,7 @@ MVP ERP built step by step. See `docs/adr-001-tech-stack.md` for the stack and c
 | Step | Module | Status |
 |---|---|---|
 | 1 | **CRM** — companies, contacts, kanban sales pipeline, activities | ✅ this codebase |
+| — | **Catalogue Produits** — products catalog (foundation of the future Sales module) | ✅ this codebase |
 | 2 | Stock management (incl. kanban restock view) | planned |
 | 3 | Supplier payments | planned |
 
@@ -15,8 +16,11 @@ Next.js (App Router, TypeScript) · Supabase (PostgreSQL + Auth) · Tailwind CSS
 ## Getting started
 
 1. **Create a Supabase project** (in the Koursino Supabase account).
-2. **Apply the schema**: open the Supabase SQL editor and run
-   `supabase/migrations/0001_crm_schema.sql`.
+2. **Apply the schema**: open the Supabase SQL editor and run each migration in
+   `supabase/migrations/` in order — `0001_crm_schema.sql`, then
+   `0002_products_catalog.sql`. `0002` also creates a public Storage bucket
+   `product-photos` for product photos; if the SQL editor refuses to create the
+   `storage.objects` policies, create that bucket and its policies from the Storage UI.
 3. **Configure the app**:
    ```bash
    cp .env.example .env.local

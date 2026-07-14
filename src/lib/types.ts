@@ -70,3 +70,27 @@ export type Activity = {
   companies?: Pick<Company, "id" | "name"> | null;
   deals?: Pick<Deal, "id" | "title"> | null;
 };
+
+// Product families (Catalogue Produits).
+// Managed as a fixed list in code (the DB column stays plain `text`, so editing this
+// list needs no migration). Drives the form category select and the list filter.
+export const PRODUCT_CATEGORIES = ["Chaises", "Tables"] as const;
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+
+export type Product = {
+  id: string;
+  sku: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  photo_url: string | null;
+  unit_price_ht: number;
+  vat_rate: number;
+  // Computed by Postgres (generated column) — never write it from the app.
+  readonly unit_price_ttc: number;
+  unit: string;
+  currency: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};

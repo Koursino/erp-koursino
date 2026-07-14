@@ -8,6 +8,7 @@ const nav = [
   { href: "/companies", label: "Companies" },
   { href: "/contacts", label: "Contacts" },
   { href: "/activities", label: "Activities" },
+  { href: "/products", label: "Catalogue" },
 ];
 
 const upcoming = [
