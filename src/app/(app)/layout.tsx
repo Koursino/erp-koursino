@@ -9,6 +9,7 @@ const nav = [
   { href: "/contacts", label: "Contacts" },
   { href: "/activities", label: "Activities" },
   { href: "/products", label: "Catalogue" },
+  { href: "/orders", label: "Commandes" },
 ];
 
 const upcoming = [

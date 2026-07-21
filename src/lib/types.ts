@@ -94,3 +94,74 @@ export type Product = {
   created_at: string;
   updated_at: string;
 };
+
+// ---------------------------------------------------------------------------
+// Sales orders (Commandes revendeurs) — step 1 skeleton, façon sale.order.
+// ---------------------------------------------------------------------------
+
+// Order lifecycle. DB stores snake_case ASCII; the UI shows French labels + a Badge tone.
+export const ORDER_STATES = [
+  { value: "brouillon", label: "Brouillon", tone: "zinc" },
+  { value: "confirmee", label: "Confirmée", tone: "blue" },
+  { value: "en_preparation", label: "En préparation", tone: "amber" },
+  { value: "livree", label: "Livrée", tone: "blue" },
+  { value: "facturee", label: "Facturée", tone: "amber" },
+  { value: "payee", label: "Payée", tone: "green" },
+  { value: "annulee", label: "Annulée", tone: "red" },
+] as const;
+
+export type OrderState = (typeof ORDER_STATES)[number]["value"];
+
+// Allowed state transitions — no arbitrary jumps. Empty array = terminal state.
+// Pure data, safe to import client-side (used to render only the permitted buttons).
+export const TRANSITIONS: Record<OrderState, OrderState[]> = {
+  brouillon: ["confirmee", "annulee"],
+  confirmee: ["en_preparation", "annulee"],
+  en_preparation: ["livree"],
+  livree: ["facturee"],
+  facturee: ["payee"],
+  payee: [],
+  annulee: [],
+};
+
+export type Order = {
+  id: string;
+  reference: string | null;
+  company_id: string;
+  deal_id: string | null;
+  state: OrderState;
+  order_date: string;
+  notes: string | null;
+  currency: string;
+  // Maintained by the DB trigger — never write these from the app.
+  readonly total_ht: number;
+  readonly total_tva: number;
+  readonly total_ttc: number;
+  confirmed_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  companies?: Pick<Company, "id" | "name"> | null;
+  deals?: Pick<Deal, "id" | "title"> | null;
+};
+
+export const DELIVERY_STATUSES = ["a_livrer", "partiel", "livre"] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+export type OrderLine = {
+  id: string;
+  order_id: string;
+  product_id: string;
+  description: string;
+  unit_price_ht: number;
+  vat_rate: number;
+  quantity: number;
+  discount_percent: number;
+  // Generated column (round(quantity * unit_price_ht * (1 - discount/100), 2)) — read-only.
+  readonly subtotal_ht: number;
+  position: number;
+  qty_delivered: number;
+  delivery_status: DeliveryStatus;
+  created_at: string;
+  updated_at: string;
+};
