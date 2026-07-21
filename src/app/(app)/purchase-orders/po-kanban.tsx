@@ -1,17 +1,10 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, Card, Input, Label, Select, Textarea, cn } from "@/components/ui";
-import {
-  PURCHASE_ORDER_STATUSES,
-  type Company,
-  type PurchaseOrder,
-} from "@/lib/types";
-import { createPurchaseOrder, movePurchaseOrder } from "./actions";
-
-type SupplierOption = Pick<Company, "id" | "name">;
+import { PURCHASE_ORDER_STATUSES, type PurchaseOrder } from "@/lib/types";
+import { cn } from "@/components/ui";
+import { movePurchaseOrder } from "./actions";
 
 const fmtMoney = (n: number, currency = "MAD") =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(n);
@@ -24,12 +17,9 @@ const columnAccent: Record<string, string> = {
 
 export function PurchaseOrderKanban({
   orders,
-  suppliers,
 }: {
   orders: (PurchaseOrder & { total: number })[];
-  suppliers: SupplierOption[];
 }) {
-  const router = useRouter();
   const [, startTransition] = useTransition();
   const [optimisticOrders, applyMove] = useOptimistic(
     orders,
@@ -37,7 +27,6 @@ export function PurchaseOrderKanban({
       state.map((o) => (o.id === move.id ? { ...o, status: move.status as never } : o))
   );
   const [dragOver, setDragOver] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
 
   function onDrop(e: React.DragEvent, status: string) {
     e.preventDefault();
@@ -53,18 +42,7 @@ export function PurchaseOrderKanban({
   }
 
   return (
-    <>
-      <div className="mb-4 flex justify-end">
-        <Button onClick={() => setCreating(true)} disabled={suppliers.length === 0}>
-          + Nouveau bon de commande
-        </Button>
-      </div>
-      {suppliers.length === 0 && (
-        <p className="mb-4 text-sm text-amber-700">
-          Marquez d&apos;abord au moins une entreprise comme « supplier » dans Companies.
-        </p>
-      )}
-      <div className="flex gap-4 overflow-x-auto pb-4">
+    <div className="flex gap-4 overflow-x-auto pb-4">
         {PURCHASE_ORDER_STATUSES.map((stage) => {
           const stageOrders = optimisticOrders.filter((o) => o.status === stage.key);
           const total = stageOrders.reduce((sum, o) => sum + o.total, 0);
@@ -124,89 +102,6 @@ export function PurchaseOrderKanban({
             </div>
           );
         })}
-      </div>
-
-      {creating && (
-        <NewPurchaseOrderOverlay
-          suppliers={suppliers}
-          onClose={() => setCreating(false)}
-          onCreated={(id) => router.push(`/purchase-orders/${id}`)}
-        />
-      )}
-    </>
-  );
-}
-
-function NewPurchaseOrderOverlay({
-  suppliers,
-  onClose,
-  onCreated,
-}: {
-  suppliers: SupplierOption[];
-  onClose: () => void;
-  onCreated: (id: string) => void;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const today = new Date().toISOString().slice(0, 10);
-
-  function submit(fd: FormData) {
-    startTransition(async () => {
-      const result = await createPurchaseOrder(fd);
-      if (result.error || !result.id) setError(result.error ?? "Création impossible.");
-      else onCreated(result.id);
-    });
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-zinc-900/40 p-6 pt-16">
-      <Card className="w-full max-w-xl p-6">
-        <h3 className="mb-4 text-base font-semibold">Nouveau bon de commande</h3>
-        <form action={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label htmlFor="supplier_id">Fournisseur *</Label>
-            <Select id="supplier_id" name="supplier_id" required defaultValue="">
-              <option value="">— sélectionner —</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="currency">Devise</Label>
-            <Select id="currency" name="currency" defaultValue="MAD">
-              {["MAD", "EUR", "USD", "GBP"].map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="order_date">Date</Label>
-            <Input id="order_date" name="order_date" type="date" defaultValue={today} />
-          </div>
-          <div>
-            <Label htmlFor="expected_date">Livraison attendue</Label>
-            <Input id="expected_date" name="expected_date" type="date" />
-          </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" name="notes" />
-          </div>
-          {error && <p className="text-sm text-red-600 sm:col-span-2">{error}</p>}
-          <div className="flex gap-2 sm:col-span-2">
-            <Button type="submit" disabled={pending}>
-              {pending ? "Création…" : "Créer et ajouter des lignes"}
-            </Button>
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Annuler
-            </Button>
-          </div>
-        </form>
-      </Card>
     </div>
   );
 }

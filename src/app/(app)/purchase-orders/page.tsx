@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader, SetupNotice } from "@/components/ui";
 import type { PurchaseOrder, PurchaseOrderLine } from "@/lib/types";
 import { PurchaseOrderKanban } from "./po-kanban";
+import { NewPurchaseOrderButton } from "./new-po-button";
 
 export const dynamic = "force-dynamic";
 
@@ -34,13 +35,21 @@ export default async function PurchaseOrdersPage() {
     ),
   }));
 
+  const suppliers = suppliersRes.data ?? [];
+
   return (
     <>
       <PageHeader
         title="Bons de commande"
         subtitle="Suivi des achats — glissez une carte entre les statuts (devis → confirmé → commandé → réceptionné → facturé)"
+        action={<NewPurchaseOrderButton suppliers={suppliers} />}
       />
-      <PurchaseOrderKanban orders={orders} suppliers={suppliersRes.data ?? []} />
+      {suppliers.length === 0 && (
+        <p className="mb-4 text-sm text-amber-700">
+          Marquez d&apos;abord au moins une entreprise comme « supplier » dans Companies pour créer un bon de commande.
+        </p>
+      )}
+      <PurchaseOrderKanban orders={orders} />
     </>
   );
 }
