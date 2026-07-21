@@ -94,3 +94,23 @@ export type Product = {
   created_at: string;
   updated_at: string;
 };
+
+// --- Purchasing module (Achats) — supplier catalog -------------------------
+// What a supplier sells TO us (purchase side), layered on the shared products table.
+
+export type SupplierCatalogEntry = {
+  id: string;
+  supplier_id: string;
+  product_id: string;
+  supplier_ref: string | null;
+  unit_price: number | null;
+  currency: string;
+  lead_time_days: number | null;
+  min_order_qty: number;
+  is_preferred: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  products?: Pick<Product, "id" | "name" | "sku" | "unit"> | null;
+  companies?: Pick<Company, "id" | "name"> | null;
+};
