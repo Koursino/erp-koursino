@@ -21,12 +21,12 @@ const navSections = [
     items: [
       { href: "/products", label: "Catalogue" },
       { href: "/catalog", label: "Catalogue fournisseur" },
+      { href: "/purchase-orders", label: "Bons de commande" },
     ],
   },
 ];
 
 const upcoming = [
-  { label: "Bons de commande", step: "Achats B" },
   { label: "Stock", step: "3" },
   { label: "Supplier payments", step: "4" },
 ];

@@ -114,3 +114,48 @@ export type SupplierCatalogEntry = {
   products?: Pick<Product, "id" | "name" | "sku" | "unit"> | null;
   companies?: Pick<Company, "id" | "name"> | null;
 };
+
+// --- Purchasing module (Achats) — Phase B: purchase orders -----------------
+
+export const PURCHASE_ORDER_STATUSES = [
+  { key: "draft", label: "Brouillon", kind: "open" },
+  { key: "rfq_sent", label: "Demande de devis", kind: "open" },
+  { key: "quote_received", label: "Devis reçu", kind: "open" },
+  { key: "confirmed", label: "Confirmé", kind: "open" },
+  { key: "ordered", label: "Commandé", kind: "open" },
+  { key: "received", label: "Réceptionné", kind: "done" },
+  { key: "invoiced", label: "Facturé", kind: "done" },
+  { key: "paid", label: "Payé", kind: "done" },
+  { key: "cancelled", label: "Annulé", kind: "cancelled" },
+] as const;
+
+export type PurchaseOrderStatus = (typeof PURCHASE_ORDER_STATUSES)[number]["key"];
+
+export const purchaseOrderStatusLabel = (key: string): string =>
+  PURCHASE_ORDER_STATUSES.find((s) => s.key === key)?.label ?? key;
+
+export type PurchaseOrder = {
+  id: string;
+  reference: string | null;
+  supplier_id: string | null;
+  status: PurchaseOrderStatus;
+  currency: string;
+  order_date: string | null;
+  expected_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  companies?: Pick<Company, "id" | "name"> | null;
+  purchase_order_lines?: PurchaseOrderLine[];
+};
+
+export type PurchaseOrderLine = {
+  id: string;
+  purchase_order_id: string;
+  product_id: string | null;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  position: number;
+  created_at: string;
+};
