@@ -2,19 +2,37 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "./signout-button";
 
-const nav = [
-  { href: "/", label: "Dashboard" },
-  { href: "/pipeline", label: "Pipeline" },
-  { href: "/companies", label: "Companies" },
-  { href: "/contacts", label: "Contacts" },
-  { href: "/activities", label: "Activities" },
-  { href: "/products", label: "Catalogue" },
-  { href: "/orders", label: "Commandes" },
+const navSections = [
+  {
+    title: null,
+    items: [{ href: "/", label: "Dashboard" }],
+  },
+  {
+    title: "CRM",
+    items: [
+      { href: "/pipeline", label: "Pipeline" },
+      { href: "/companies", label: "Companies" },
+      { href: "/contacts", label: "Contacts" },
+      { href: "/activities", label: "Activities" },
+    ],
+  },
+  {
+    title: "Produits & Achats",
+    items: [
+      { href: "/products", label: "Catalogue" },
+      { href: "/catalog", label: "Catalogue fournisseur" },
+    ],
+  },
+  {
+    title: "Ventes",
+    items: [{ href: "/orders", label: "Commandes" }],
+  },
 ];
 
 const upcoming = [
-  { label: "Stock", step: 2 },
-  { label: "Supplier payments", step: 3 },
+  { label: "Bons de commande", step: "Achats B" },
+  { label: "Stock", step: "3" },
+  { label: "Supplier payments", step: "4" },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -33,15 +51,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <p className="text-xs text-zinc-500">CRM · MVP</p>
           </div>
         </div>
-        <nav className="flex-1 space-y-0.5 px-3">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="block rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-            >
-              {item.label}
-            </Link>
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3">
+          {navSections.map((section, i) => (
+            <div key={section.title ?? "root"} className={i > 0 ? "pt-4" : ""}>
+              {section.title && (
+                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                  {section.title}
+                </p>
+              )}
+              {section.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           ))}
           <div className="pt-4">
             <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
@@ -54,7 +81,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               >
                 {item.label}
                 <span className="ml-2 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium">
-                  step {item.step}
+                  {item.step}
                 </span>
               </span>
             ))}
