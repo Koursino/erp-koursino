@@ -36,8 +36,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = supabase ? (await supabase.auth.getUser()).data.user : null;
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="fixed inset-y-0 flex w-56 flex-col border-r border-zinc-200 bg-white">
+    <div className="min-h-screen">
+      <aside className="fixed inset-y-0 z-20 flex w-56 flex-col border-r border-zinc-200 bg-white">
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-xs font-bold text-white">
             K
@@ -88,7 +88,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SignOutButton />
         </div>
       </aside>
-      <main className="ml-56 flex-1 px-8 py-8">{children}</main>
+      <main className="ml-56 px-8 py-8">{children}</main>
     </div>
   );
 }
