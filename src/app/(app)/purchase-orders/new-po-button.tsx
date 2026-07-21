@@ -13,7 +13,7 @@ export function NewPurchaseOrderButton({ suppliers }: { suppliers: SupplierOptio
   return (
     <>
       <Button onClick={() => setOpen(true)} disabled={suppliers.length === 0}>
-        + Nouveau bon de commande
+        + Nouvel achat
       </Button>
       {open && <NewPurchaseOrderOverlay suppliers={suppliers} onClose={() => setOpen(false)} />}
     </>
@@ -43,7 +43,7 @@ function NewPurchaseOrderOverlay({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-zinc-900/40 p-6 pt-16">
       <Card className="w-full max-w-xl p-6">
-        <h3 className="mb-4 text-base font-semibold">Nouveau bon de commande</h3>
+        <h3 className="mb-4 text-base font-semibold">Nouvel achat</h3>
         <form action={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Label htmlFor="supplier_id">Fournisseur *</Label>
