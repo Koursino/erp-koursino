@@ -1,6 +1,7 @@
 export type Company = {
   id: string;
   name: string;
+  code: string | null;
   industry: string | null;
   website: string | null;
   email: string | null;
@@ -53,32 +54,19 @@ export type Deal = {
   companies?: Pick<Company, "id" | "name"> | null;
 };
 
-export const ACTIVITY_TYPES = ["call", "email", "meeting", "note", "task"] as const;
-export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+// ---------------------------------------------------------------------------
+// Products (Catalogue Produits) — shared by Achats, Ventes and Stock.
+// ---------------------------------------------------------------------------
 
-export type Activity = {
-  id: string;
-  type: ActivityType;
-  subject: string;
-  content: string | null;
-  due_date: string | null;
-  done: boolean;
-  company_id: string | null;
-  contact_id: string | null;
-  deal_id: string | null;
-  created_at: string;
-  companies?: Pick<Company, "id" | "name"> | null;
-  deals?: Pick<Deal, "id" | "title"> | null;
-};
-
-// Product families (Catalogue Produits).
-// Managed as a fixed list in code (the DB column stays plain `text`, so editing this
-// list needs no migration). Drives the form category select and the list filter.
+// Product families. Managed as a fixed list in code (the DB column stays plain
+// `text`, so editing this list needs no migration). Drives the form category
+// select and the list filter.
 export const PRODUCT_CATEGORIES = ["Chaises", "Tables"] as const;
 export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
 
 export type Product = {
   id: string;
+  /** Legacy hand-made code (AR-1) or generated SUPPLIER/MODEL/…/SEQ. */
   sku: string;
   name: string;
   description: string | null;
@@ -91,87 +79,118 @@ export type Product = {
   unit: string;
   currency: string;
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
-// ---------------------------------------------------------------------------
-// Sales orders (Commandes revendeurs) — step 1 skeleton, façon sale.order.
-// ---------------------------------------------------------------------------
-
-// Order lifecycle. DB stores snake_case ASCII; the UI shows French labels + a Badge tone.
-export const ORDER_STATES = [
-  { value: "brouillon", label: "Brouillon", tone: "zinc" },
-  { value: "confirmee", label: "Confirmée", tone: "blue" },
-  { value: "en_preparation", label: "En préparation", tone: "amber" },
-  { value: "livree", label: "Livrée", tone: "blue" },
-  { value: "facturee", label: "Facturée", tone: "amber" },
-  { value: "payee", label: "Payée", tone: "green" },
-  { value: "annulee", label: "Annulée", tone: "red" },
-] as const;
-
-export type OrderState = (typeof ORDER_STATES)[number]["value"];
-
-// Allowed state transitions — no arbitrary jumps. Empty array = terminal state.
-// Pure data, safe to import client-side (used to render only the permitted buttons).
-export const TRANSITIONS: Record<OrderState, OrderState[]> = {
-  brouillon: ["confirmee", "annulee"],
-  confirmee: ["en_preparation", "annulee"],
-  en_preparation: ["livree"],
-  livree: ["facturee"],
-  facturee: ["payee"],
-  payee: [],
-  annulee: [],
-};
-
-export type Order = {
-  id: string;
-  reference: string | null;
-  company_id: string;
-  deal_id: string | null;
-  state: OrderState;
-  order_date: string;
+  // Stock layer (migrations 0006+). While supplier_id is null the article
+  // keeps its legacy SKU; setting it switches to the generated code.
+  supplier_id: string | null;
+  model: string | null;
+  model_code: string | null;
+  seq: number | null;
+  attributes_summary: string | null;
+  barcode: string | null;
+  purchase_price: number | null;
+  min_stock: number;
   notes: string | null;
-  currency: string;
-  // Maintained by the DB trigger — never write these from the app.
-  readonly total_ht: number;
-  readonly total_tva: number;
-  readonly total_ttc: number;
-  confirmed_at: string | null;
-  created_by: string | null;
   created_at: string;
   updated_at: string;
-  companies?: Pick<Company, "id" | "name"> | null;
-  deals?: Pick<Deal, "id" | "title"> | null;
+  companies?: Pick<Company, "id" | "name" | "code"> | null;
+  product_values?: ProductValue[];
 };
 
-export const DELIVERY_STATUSES = ["a_livrer", "partiel", "livre"] as const;
-export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+export type ProductRef = Pick<Product, "id" | "sku" | "name" | "attributes_summary">;
 
-// States from which a delivery note (bon de livraison) can be issued: the goods
-// have shipped, so invoicing/payment afterwards does not remove the BL.
-export const BL_ELIGIBLE_STATES: OrderState[] = ["livree", "facturee", "payee"];
+/** Display label for an article: "CHAISE AURA · Noir". */
+export const productLabel = (p: Pick<Product, "name" | "attributes_summary">) =>
+  p.attributes_summary ? `${p.name} · ${p.attributes_summary}` : p.name;
 
-export type OrderLine = {
+// ---------------------------------------------------------------------------
+// Stock — warehouses, article attributes, ledger (migrations 0006+)
+// ---------------------------------------------------------------------------
+
+export type Warehouse = {
   id: string;
-  order_id: string;
-  product_id: string;
-  description: string;
-  unit_price_ht: number;
-  vat_rate: number;
-  quantity: number;
-  discount_percent: number;
-  // Generated column (round(quantity * unit_price_ht * (1 - discount/100), 2)) — read-only.
-  readonly subtotal_ht: number;
-  position: number;
-  qty_delivered: number;
-  delivery_status: DeliveryStatus;
+  code: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  is_default: boolean;
+  is_active: boolean;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
 
-// --- Purchasing module (Achats) — supplier catalog -------------------------
-// What a supplier sells TO us (purchase side), layered on the shared products table.
+/** A user-managed article characteristic (colour, material, size, …). */
+export type ProductAttribute = {
+  id: string;
+  code: string;
+  name: string;
+  position: number;
+  /** When true, the chosen value's code becomes a segment of the SKU. */
+  in_sku: boolean;
+  is_required: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  product_attribute_values?: ProductAttributeValue[];
+};
+
+export type ProductAttributeValue = {
+  id: string;
+  attribute_id: string;
+  label: string;
+  /** Short fragment used inside the SKU, e.g. "NOIR". */
+  code: string;
+  position: number;
+  created_at: string;
+};
+
+/** One attribute value assigned to one article. */
+export type ProductValue = {
+  product_id: string;
+  attribute_id: string;
+  value_id: string;
+};
+
+export type StockLevel = {
+  product_id: string;
+  warehouse_id: string;
+  quantity: number;
+  updated_at: string;
+  products?: Product | null;
+  warehouses?: Pick<Warehouse, "id" | "code" | "name"> | null;
+};
+
+export const MOVEMENT_REASONS = [
+  "reception",
+  "delivery",
+  "transfer_in",
+  "transfer_out",
+  "adjustment",
+  "return",
+] as const;
+export type MovementReason = (typeof MOVEMENT_REASONS)[number];
+
+export type StockMovement = {
+  id: string;
+  product_id: string;
+  warehouse_id: string;
+  /** Signed: positive enters the warehouse, negative leaves it. */
+  quantity: number;
+  reason: MovementReason;
+  purchase_order_id: string | null;
+  order_id: string | null;
+  note: string | null;
+  created_at: string;
+  created_by: string | null;
+  products?: ProductRef | null;
+  warehouses?: Pick<Warehouse, "id" | "code" | "name"> | null;
+};
+
+// ---------------------------------------------------------------------------
+// Purchasing module (Achats) — supplier catalog
+// What a supplier sells TO us (purchase side), layered on the shared products.
+// ---------------------------------------------------------------------------
 
 export type SupplierCatalogEntry = {
   id: string;
@@ -190,7 +209,9 @@ export type SupplierCatalogEntry = {
   companies?: Pick<Company, "id" | "name"> | null;
 };
 
-// --- Purchasing module (Achats) — Phase B: purchase orders -----------------
+// ---------------------------------------------------------------------------
+// Purchasing module (Achats) — Phase B: purchase orders (BC-YYYY-NNNN)
+// ---------------------------------------------------------------------------
 
 export const PURCHASE_ORDER_STATUSES = [
   { key: "draft", label: "Brouillon", kind: "open" },
@@ -209,18 +230,31 @@ export type PurchaseOrderStatus = (typeof PURCHASE_ORDER_STATUSES)[number]["key"
 export const purchaseOrderStatusLabel = (key: string): string =>
   PURCHASE_ORDER_STATUSES.find((s) => s.key === key)?.label ?? key;
 
+/** Statuses from which the goods can still be received into a warehouse. */
+export const PO_RECEIVABLE_STATUSES: PurchaseOrderStatus[] = [
+  "draft",
+  "rfq_sent",
+  "quote_received",
+  "confirmed",
+  "ordered",
+];
+
 export type PurchaseOrder = {
   id: string;
   reference: string | null;
   supplier_id: string | null;
+  /** Destination warehouse for the reception (stock layer). */
+  warehouse_id: string | null;
   status: PurchaseOrderStatus;
   currency: string;
   order_date: string | null;
   expected_date: string | null;
+  received_at: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
   companies?: Pick<Company, "id" | "name"> | null;
+  warehouses?: Pick<Warehouse, "id" | "code" | "name"> | null;
   purchase_order_lines?: PurchaseOrderLine[];
 };
 
@@ -233,4 +267,156 @@ export type PurchaseOrderLine = {
   unit_price: number;
   position: number;
   created_at: string;
+  products?: ProductRef | null;
+};
+
+// ---------------------------------------------------------------------------
+// Sales orders (Commandes revendeurs) — KRS-YYYY-NNNNN, façon sale.order.
+// ---------------------------------------------------------------------------
+
+// Order lifecycle. DB stores snake_case ASCII; the UI shows French labels + a Badge tone.
+export const ORDER_STATES = [
+  { value: "brouillon", label: "Brouillon", tone: "zinc" },
+  { value: "confirmee", label: "Confirmée", tone: "blue" },
+  { value: "en_preparation", label: "En préparation", tone: "amber" },
+  { value: "livree", label: "Livrée", tone: "blue" },
+  { value: "facturee", label: "Facturée", tone: "amber" },
+  { value: "payee", label: "Payée", tone: "green" },
+  { value: "annulee", label: "Annulée", tone: "red" },
+] as const;
+
+export type OrderState = (typeof ORDER_STATES)[number]["value"];
+
+export const ORDER_STATE_LABEL: Record<OrderState, string> = Object.fromEntries(
+  ORDER_STATES.map((s) => [s.value, s.label])
+) as Record<OrderState, string>;
+
+// Allowed state transitions — no arbitrary jumps. Empty array = terminal state.
+// Pure data, safe to import client-side (used to render only the permitted buttons).
+export const TRANSITIONS: Record<OrderState, OrderState[]> = {
+  brouillon: ["confirmee", "annulee"],
+  confirmee: ["en_preparation", "annulee"],
+  en_preparation: ["livree"],
+  livree: ["facturee"],
+  facturee: ["payee"],
+  payee: [],
+  annulee: [],
+};
+
+export const DELIVERY_STATUSES = ["a_livrer", "partiel", "livre"] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+// States from which a delivery note (bon de livraison) can be issued: the goods
+// have shipped, so invoicing/payment afterwards does not remove the BL.
+export const BL_ELIGIBLE_STATES: OrderState[] = ["livree", "facturee", "payee"];
+
+export type Order = {
+  id: string;
+  reference: string | null;
+  company_id: string;
+  deal_id: string | null;
+  state: OrderState;
+  order_date: string;
+  notes: string | null;
+  currency: string;
+  // Maintained by the DB trigger — never write these from the app.
+  readonly total_ht: number;
+  readonly total_tva: number;
+  readonly total_ttc: number;
+  confirmed_at: string | null;
+  /** Source warehouse for deliveries (stock layer). */
+  warehouse_id: string | null;
+  delivered_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  companies?: Pick<Company, "id" | "name"> | null;
+  deals?: Pick<Deal, "id" | "title"> | null;
+  warehouses?: Pick<Warehouse, "id" | "code" | "name"> | null;
+  order_lines?: OrderLine[];
+};
+
+/** Lines are editable only while the order is a draft. */
+export const isOrderEditable = (o: Pick<Order, "state">) => o.state === "brouillon";
+
+export type OrderLine = {
+  id: string;
+  order_id: string;
+  product_id: string;
+  description: string;
+  unit_price_ht: number;
+  vat_rate: number;
+  quantity: number;
+  discount_percent: number;
+  // Generated column (round(quantity * unit_price_ht * (1 - discount/100), 2)) — read-only.
+  readonly subtotal_ht: number;
+  position: number;
+  qty_delivered: number;
+  delivery_status: DeliveryStatus;
+  created_at: string;
+  updated_at: string;
+  products?: ProductRef | null;
+};
+
+// ---------------------------------------------------------------------------
+// Transfers between warehouses (stock layer)
+// ---------------------------------------------------------------------------
+
+export const TRANSFER_STATUSES = ["draft", "done", "cancelled"] as const;
+export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
+
+export type StockTransferLine = {
+  id: string;
+  transfer_id: string;
+  product_id: string;
+  quantity: number;
+  products?: ProductRef | null;
+};
+
+export type StockTransfer = {
+  id: string;
+  reference: string;
+  from_warehouse_id: string;
+  to_warehouse_id: string;
+  status: TransferStatus;
+  transfer_date: string;
+  executed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  from_warehouse?: Pick<Warehouse, "id" | "code" | "name"> | null;
+  to_warehouse?: Pick<Warehouse, "id" | "code" | "name"> | null;
+  stock_transfer_lines?: StockTransferLine[];
+};
+
+/** One warehouse row inside a split line (kept for the shared line editor). */
+export type LineAllocationInput = {
+  warehouse_id: string;
+  quantity: number;
+};
+
+/** A line as posted from a multi-line document form. */
+export type OrderLineInput = {
+  product_id: string;
+  quantity: number;
+  unit_price?: number | null;
+  allocations?: LineAllocationInput[];
+};
+
+export const ACTIVITY_TYPES = ["call", "email", "meeting", "note", "task"] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+export type Activity = {
+  id: string;
+  type: ActivityType;
+  subject: string;
+  content: string | null;
+  due_date: string | null;
+  done: boolean;
+  company_id: string | null;
+  contact_id: string | null;
+  deal_id: string | null;
+  created_at: string;
+  companies?: Pick<Company, "id" | "name"> | null;
+  deals?: Pick<Deal, "id" | "title"> | null;
 };

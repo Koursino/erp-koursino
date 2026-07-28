@@ -28,12 +28,22 @@ const navSections = [
     title: "Ventes",
     items: [{ href: "/orders", label: "Commandes" }],
   },
+  {
+    title: "Stock",
+    items: [
+      { href: "/stock", label: "Niveaux de stock" },
+      { href: "/stock/products", label: "Articles" },
+      { href: "/stock/attributes", label: "Attributs" },
+      { href: "/stock/warehouses", label: "Entrepôts" },
+      { href: "/stock/purchase-orders", label: "Réceptions (BC)" },
+      { href: "/stock/sales-orders", label: "Livraisons (KRS)" },
+      { href: "/stock/transfers", label: "Transferts" },
+      { href: "/stock/movements", label: "Mouvements" },
+    ],
+  },
 ];
 
-const upcoming = [
-  { label: "Stock", step: "3" },
-  { label: "Supplier payments", step: "4" },
-];
+const upcoming = [{ label: "Supplier payments", step: "3" }];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -51,7 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <p className="text-xs text-zinc-500">CRM · MVP</p>
           </div>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
           {navSections.map((section, i) => (
             <div key={section.title ?? "root"} className={i > 0 ? "pt-4" : ""}>
               {section.title && (

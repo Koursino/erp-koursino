@@ -11,6 +11,8 @@ const str = (fd: FormData, key: string) => {
 function companyFromForm(fd: FormData) {
   return {
     name: str(fd, "name") ?? "",
+    // Supplier abbreviation opening every article SKU, e.g. "SAMS".
+    code: str(fd, "code")?.toUpperCase().replace(/[^A-Z0-9]+/g, "-") ?? null,
     industry: str(fd, "industry"),
     website: str(fd, "website"),
     email: str(fd, "email"),

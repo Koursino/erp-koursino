@@ -4,13 +4,51 @@ MVP ERP built step by step. See `docs/adr-001-tech-stack.md` for the stack and c
 
 | Step | Module | Status |
 |---|---|---|
-| 1 | **CRM** — companies, contacts, kanban sales pipeline, activities | ✅ this codebase |
-| — | **Catalogue Produits** — products catalog (foundation of the future Sales module) | ✅ this codebase |
-| Achats A | **Catalogue fournisseur** — supplier catalog (purchase price, lead time, min qty) — see `docs/adr-002-purchasing-module.md` | ✅ this codebase |
-| Ventes 1 | **Commandes revendeurs** — sales orders (header + lines, lifecycle, auto totals, numbering) | ✅ this codebase |
-| Achats B | Bons de commande (statuts + kanban + PDF + email) | planned |
-| 3 | Stock management (incl. kanban restock view) | planned |
-| 4 | Supplier payments | planned |
+| 1 | **CRM** — companies, contacts, kanban sales pipeline, activities | ✅ |
+| — | **Catalogue Produits** — products catalog (shared by Achats, Ventes, Stock) | ✅ |
+| Achats A | **Catalogue fournisseur** — supplier catalog (purchase price, lead time, min qty) — see `docs/adr-002-purchasing-module.md` | ✅ |
+| Achats B | **Bons de commande** — purchase orders (statuts + kanban + PDF) | ✅ |
+| Ventes 1 | **Commandes revendeurs** — sales orders (lifecycle, auto totals, numbering, BL PDF) | ✅ |
+| 2 | **Stock** — warehouses, attributes & SKU, ledger, receptions, transfers, deliveries | ✅ |
+| 3 | Supplier payments | planned |
+
+## Stock module
+
+The stock layer (migrations `0006`–`0009`) is additive on top of the
+commercial schema (products in MAD with VAT, purchase orders `BC-…`, customer
+orders `KRS-…`); nothing pre-existing was rewritten.
+
+**Article codification.** Legacy articles keep their hand-made SKU (`AR-1`,
+`BR-AV`, …). Assigning a **supplier** to an article switches it to the
+structured code, built by the database and rebuilt automatically when
+attributes change:
+
+```
+SUPPLIER / MODEL / <attribute codes> / SEQUENCE      LY/CHAISE-AURA/NOIR/0001
+```
+
+The supplier fragment is the company `code` (or the first 6 letters of its
+name) and the sequence is a running number per supplier.
+
+**Attributes** are user-managed (`/stock/attributes`). Couleur and Matière ship
+as defaults — colour feeds the SKU, material is descriptive — and you can add,
+rename, reorder or delete attributes and their allowed values.
+
+**Stock is always counted per warehouse**, and only ever changes through four
+paths:
+
+| Path | Effect | Function |
+|---|---|---|
+| Purchase order received | + destination warehouse | `receive_purchase_order` |
+| Transfer executed | − source, + destination | `execute_stock_transfer` |
+| Manual entry | ± one warehouse (**note required**) | `adjust_stock` |
+| Customer order delivered (full or partial) | − source warehouse | `deliver_order` |
+
+Cancelling a delivery puts the goods back with `return` movements
+(`return_order_delivery`). Creating or confirming a document never moves
+stock. `stock_movements` is an append-only ledger and the single source of
+truth; `stock_levels` is a cache maintained by trigger, and stock can never go
+negative.
 
 ## Stack
 
@@ -19,12 +57,11 @@ Next.js (App Router, TypeScript) · Supabase (PostgreSQL + Auth) · Tailwind CSS
 ## Getting started
 
 1. **Create a Supabase project** (in the Koursino Supabase account).
-2. **Apply the schema**: open the Supabase SQL editor and run each migration in
-   `supabase/migrations/` in order — `0001_crm_schema.sql`,
-   `0002_products_catalog.sql`, `0003_supplier_catalog.sql`, then
-   `0004_sales_orders.sql`. `0002` also creates a public Storage bucket
-   `product-photos` for product photos; if the SQL editor refuses to create the
-   `storage.objects` policies, create that bucket and its policies from the Storage UI.
+2. **Apply the schema**: run the migrations in `supabase/migrations/` in
+   filename order (`0001` → `0009`). `0002` also creates a public Storage
+   bucket `product-photos`; if the SQL editor refuses to create the
+   `storage.objects` policies, create that bucket and its policies from the
+   Storage UI.
 3. **Configure the app**:
    ```bash
    cp .env.example .env.local

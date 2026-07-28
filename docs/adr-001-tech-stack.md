@@ -59,7 +59,8 @@ upgrade to Pro when the ERP is in daily production use.
 
 1. **CRM (step 1):** companies & contacts, sales pipeline (leads → deals with
    stages and values), activity log (calls, emails, notes, reminders).
-2. **Stock management (step 2):** products, warehouses/locations, stock
-   movements, low-stock alerts.
+2. **Stock management (step 2):** articles with user-managed attributes and a
+   database-generated SKU, warehouses, purchase orders, transfers, delivery
+   notes, an append-only movement ledger and low-stock alerts.
 3. **Supplier payments (step 3):** suppliers (reuses the company entity),
    purchase invoices, payment schedule and status, due-date reminders.

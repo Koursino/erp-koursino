@@ -64,9 +64,22 @@ function CompanyForm({ company, onClose }: { company?: Company; onClose: () => v
     <Card className="w-full max-w-2xl p-6">
       <h3 className="mb-4 text-base font-semibold">{company ? "Edit company" : "New company"}</h3>
       <form action={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
+        <div>
           <Label htmlFor="name">Name *</Label>
           <Input id="name" name="name" required defaultValue={company?.name} />
+        </div>
+        <div>
+          <Label htmlFor="code">Code</Label>
+          <Input
+            id="code"
+            name="code"
+            placeholder="SAMS"
+            maxLength={12}
+            defaultValue={company?.code ?? ""}
+          />
+          <p className="mt-1 text-xs text-zinc-500">
+            Supplier abbreviation opening every article SKU. Defaults to the first 6 letters of the name.
+          </p>
         </div>
         <div>
           <Label htmlFor="industry">Industry</Label>

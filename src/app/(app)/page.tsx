@@ -19,17 +19,20 @@ export default async function DashboardPage() {
     );
   }
 
-  const [companies, contacts, stagesRes, dealsRes, activitiesRes] = await Promise.all([
-    supabase.from("companies").select("id", { count: "exact", head: true }),
-    supabase.from("contacts").select("id", { count: "exact", head: true }),
-    supabase.from("deal_stages").select("*"),
-    supabase.from("deals").select("*"),
-    supabase
-      .from("activities")
-      .select("*, companies(id, name), deals(id, title)")
-      .order("created_at", { ascending: false })
-      .limit(6),
-  ]);
+  const [companies, contacts, stagesRes, dealsRes, activitiesRes, productsRes, levelsRes] =
+    await Promise.all([
+      supabase.from("companies").select("id", { count: "exact", head: true }),
+      supabase.from("contacts").select("id", { count: "exact", head: true }),
+      supabase.from("deal_stages").select("*"),
+      supabase.from("deals").select("*"),
+      supabase
+        .from("activities")
+        .select("*, companies(id, name), deals(id, title)")
+        .order("created_at", { ascending: false })
+        .limit(6),
+      supabase.from("products").select("id, min_stock").eq("is_active", true),
+      supabase.from("stock_levels").select("product_id, quantity"),
+    ]);
 
   const stages = (stagesRes.data ?? []) as DealStage[];
   const deals = (dealsRes.data ?? []) as Deal[];
@@ -43,18 +46,35 @@ export default async function DashboardPage() {
     .filter((d) => wonStageIds.has(d.stage_id))
     .reduce((sum, d) => sum + (d.value ?? 0), 0);
 
+  const stockProducts = (productsRes.data ?? []) as { id: string; min_stock: number }[];
+  const stockLevels = (levelsRes.data ?? []) as { product_id: string; quantity: number }[];
+  const unitsByProduct = new Map<string, number>();
+  for (const level of stockLevels) {
+    unitsByProduct.set(level.product_id, (unitsByProduct.get(level.product_id) ?? 0) + level.quantity);
+  }
+  const lowStockCount = stockProducts.filter(
+    (p) => p.min_stock > 0 && (unitsByProduct.get(p.id) ?? 0) <= p.min_stock
+  ).length;
+
   const stats = [
     { label: "Companies", value: companies.count ?? 0, href: "/companies" },
     { label: "Contacts", value: contacts.count ?? 0, href: "/contacts" },
     { label: "Open deals", value: openDeals.length, href: "/pipeline" },
     { label: "Pipeline value", value: fmtMoney(pipelineValue), href: "/pipeline" },
     { label: "Won (total)", value: fmtMoney(wonValue), href: "/pipeline" },
+    { label: "Articles", value: stockProducts.length, href: "/stock/products" },
+    {
+      label: "Units in stock",
+      value: [...unitsByProduct.values()].reduce((a, b) => a + b, 0),
+      href: "/stock",
+    },
+    { label: "Low stock", value: lowStockCount, href: "/stock" },
   ];
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle="Koursino CRM at a glance" />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <PageHeader title="Dashboard" subtitle="Koursino CRM and stock at a glance" />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
           <Link key={s.label} href={s.href}>
             <Card className="p-5 transition-shadow hover:shadow-md">
