@@ -46,7 +46,7 @@ export default async function PurchaseOrdersPage() {
       />
       {suppliers.length === 0 && (
         <p className="mb-4 text-sm text-amber-700">
-          Marquez d&apos;abord au moins une entreprise comme « supplier » dans Companies pour créer un bon de commande.
+          Marquez d&apos;abord au moins une entreprise comme « supplier » dans Companies pour créer un achat.
         </p>
       )}
       <PurchaseOrderKanban orders={orders} />

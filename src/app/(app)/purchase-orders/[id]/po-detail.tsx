@@ -52,7 +52,7 @@ export function PurchaseOrderDetail({
           <div>
             <div className="flex items-center gap-3">
               <h1 className="font-mono text-lg font-semibold text-zinc-900">
-                {order.reference ?? "Bon de commande"}
+                {order.reference ?? "Achat"}
               </h1>
               <Badge tone={statusTone}>{purchaseOrderStatusLabel(order.status)}</Badge>
             </div>
@@ -168,7 +168,7 @@ export function PurchaseOrderDetail({
           variant="ghost"
           className="text-red-600"
           onClick={() => {
-            if (confirm(`Supprimer le bon de commande ${order.reference ?? ""} ?`)) {
+            if (confirm(`Supprimer l'achat ${order.reference ?? ""} ?`)) {
               startTransition(async () => {
                 await deletePurchaseOrder(order.id);
                 router.push("/purchase-orders");
@@ -176,7 +176,7 @@ export function PurchaseOrderDetail({
             }
           }}
         >
-          Supprimer ce bon de commande
+          Supprimer cet achat
         </Button>
       </div>
     </div>

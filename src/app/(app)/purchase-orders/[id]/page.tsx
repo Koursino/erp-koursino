@@ -17,7 +17,7 @@ export default async function PurchaseOrderDetailPage({
   if (!supabase) {
     return (
       <>
-        <PageHeader title="Bon de commande" />
+        <PageHeader title="Achat" />
         <SetupNotice />
       </>
     );
