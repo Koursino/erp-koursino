@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Badge, Card, PageHeader, SetupNotice } from "@/components/ui";
 import { formatDhs } from "@/lib/format";
-import { ORDER_STATES, type Order, type OrderLine } from "@/lib/types";
+import { BL_ELIGIBLE_STATES, ORDER_STATES, type Order, type OrderLine } from "@/lib/types";
 import { OrderActions, OrderHeaderCard } from "./order-header";
 import { OrderLinesEditor } from "./order-lines-editor";
 
@@ -65,7 +65,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </h1>
             <Badge tone={meta?.tone}>{meta?.label ?? order.state}</Badge>
           </div>
-          <OrderActions order={order} hasLines={lines.length > 0} />
+          <div className="flex flex-wrap items-start justify-end gap-2">
+            {/* A delivery note can be issued once the goods have shipped. */}
+            {BL_ELIGIBLE_STATES.includes(order.state) && (
+              <Link
+                href={`/print/delivery-note/${order.id}`}
+                target="_blank"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50"
+              >
+                Bon de livraison (PDF)
+              </Link>
+            )}
+            <OrderActions order={order} hasLines={lines.length > 0} />
+          </div>
         </div>
       </div>
 

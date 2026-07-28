@@ -148,6 +148,10 @@ export type Order = {
 export const DELIVERY_STATUSES = ["a_livrer", "partiel", "livre"] as const;
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
+// States from which a delivery note (bon de livraison) can be issued: the goods
+// have shipped, so invoicing/payment afterwards does not remove the BL.
+export const BL_ELIGIBLE_STATES: OrderState[] = ["livree", "facturee", "payee"];
+
 export type OrderLine = {
   id: string;
   order_id: string;
