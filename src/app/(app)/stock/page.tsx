@@ -1,7 +1,17 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Select, SetupNotice } from "@/components/ui";
-import { productLabel, type Product, type StockLevel, type Warehouse } from "@/lib/types";
+import { ExportPdfLink } from "@/components/export-pdf-link";
+import { loadColorLabels } from "@/lib/product-colors";
+import {
+  buildQuantityIndex,
+  parseStockFilters,
+  stockColumns,
+  stockFilterQuery,
+  stockTotalFor,
+  stockVisibleProducts,
+} from "@/lib/reports";
+import type { Product, StockLevel, Warehouse } from "@/lib/types";
 import { ManualEntryButton } from "./adjust-stock";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +31,10 @@ export default async function StockPage({
     );
   }
 
-  const { warehouse: warehouseFilter = "", q = "" } = await searchParams;
+  const filters = parseStockFilters(await searchParams);
+  const { warehouse: warehouseFilter, q } = filters;
 
-  const [warehousesRes, productsRes, levelsRes] = await Promise.all([
+  const [warehousesRes, productsRes, levelsRes, colorById] = await Promise.all([
     supabase.from("warehouses").select("*").eq("is_active", true).order("name"),
     supabase
       .from("products")
@@ -31,6 +42,9 @@ export default async function StockPage({
       .eq("is_active", true)
       .order("sku"),
     supabase.from("stock_levels").select("product_id, warehouse_id, quantity"),
+    // No ids: the page lists every active article, and hundreds of UUIDs in an
+    // `.in()` would risk a 414.
+    loadColorLabels(supabase),
   ]);
 
   const warehouses = (warehousesRes.data ?? []) as Warehouse[];
@@ -41,32 +55,12 @@ export default async function StockPage({
   >[];
 
   // quantity[productId][warehouseId]
-  const quantity = new Map<string, Map<string, number>>();
-  for (const level of levels) {
-    const row = quantity.get(level.product_id) ?? new Map<string, number>();
-    row.set(level.warehouse_id, level.quantity);
-    quantity.set(level.product_id, row);
-  }
-
-  const columns = warehouseFilter
-    ? warehouses.filter((w) => w.id === warehouseFilter)
-    : warehouses;
-
-  const search = q.trim().toLowerCase();
-  const visible = products.filter((p) => {
-    if (search) {
-      const haystack = `${p.sku} ${p.name} ${p.attributes_summary ?? ""} ${
-        p.companies?.name ?? ""
-      }`.toLowerCase();
-      if (!haystack.includes(search)) return false;
-    }
-    // With a warehouse selected, only show what that warehouse actually holds.
-    if (warehouseFilter) return (quantity.get(p.id)?.get(warehouseFilter) ?? 0) > 0;
-    return true;
-  });
+  const quantity = buildQuantityIndex(levels);
+  const columns = stockColumns(warehouses, filters);
+  const visible = stockVisibleProducts(products, quantity, filters, colorById);
 
   const totalFor = (productId: string, scope: Warehouse[]) =>
-    scope.reduce((sum, w) => sum + (quantity.get(productId)?.get(w.id) ?? 0), 0);
+    stockTotalFor(quantity, productId, scope);
 
   const totalUnits = products.reduce((sum, p) => sum + totalFor(p.id, columns), 0);
   const lowStock = products.filter(
@@ -85,17 +79,22 @@ export default async function StockPage({
   }));
   const warehouseOptions = warehouses.map((w) => ({ id: w.id, code: w.code, name: w.name }));
 
+  const exportQs = stockFilterQuery(filters);
+
   return (
     <>
       <PageHeader
         title="Stock"
         subtitle="Quantities per article and per warehouse, derived from the movement ledger"
         action={
-          <ManualEntryButton
-            products={productOptions}
-            warehouses={warehouseOptions}
-            warehouseId={warehouseFilter || undefined}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportPdfLink href={`/print/report/stock${exportQs ? `?${exportQs}` : ""}`} />
+            <ManualEntryButton
+              products={productOptions}
+              warehouses={warehouseOptions}
+              warehouseId={warehouseFilter || undefined}
+            />
+          </div>
         }
       />
 
@@ -183,6 +182,7 @@ export default async function StockPage({
               <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500">
                 <th className="px-5 py-3 font-medium">SKU</th>
                 <th className="px-5 py-3 font-medium">Article</th>
+                <th className="px-5 py-3 font-medium">Couleur</th>
                 {columns.map((w) => (
                   <th key={w.id} className="px-5 py-3 text-right font-medium">
                     {w.code}
@@ -200,7 +200,9 @@ export default async function StockPage({
                   <tr key={p.id} className="hover:bg-zinc-50">
                     <td className="px-5 py-3 font-mono text-xs font-medium">{p.sku}</td>
                     <td className="px-5 py-3">
-                      <span className="font-medium">{productLabel(p)}</span>
+                      {/* Colour has its own column now — showing productLabel() here
+                          would print it twice on the same row. */}
+                      <span className="font-medium">{p.name}</span>
                       <span className="ml-2 text-xs text-zinc-500">{p.companies?.name}</span>
                       {low && (
                         <span className="ml-2">
@@ -208,6 +210,7 @@ export default async function StockPage({
                         </span>
                       )}
                     </td>
+                    <td className="px-5 py-3 text-zinc-600">{colorById.get(p.id) ?? "—"}</td>
                     {columns.map((w) => {
                       const qty = quantity.get(p.id)?.get(w.id) ?? 0;
                       return (

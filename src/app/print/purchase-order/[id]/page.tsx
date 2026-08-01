@@ -6,7 +6,7 @@ import {
   type PurchaseOrder,
   type PurchaseOrderLine,
 } from "@/lib/types";
-import { PrintButton } from "./print-button";
+import { PrintButton } from "@/components/print-button";
 
 export const dynamic = "force-dynamic";
 

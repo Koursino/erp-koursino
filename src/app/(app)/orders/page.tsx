@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Badge, Card, EmptyState, PageHeader, SetupNotice } from "@/components/ui";
+import { ExportPdfLink } from "@/components/export-pdf-link";
 import { formatDhs } from "@/lib/format";
+import {
+  applySalesFilters,
+  hasSalesFilters,
+  parseSalesFilters,
+  salesFilterQuery,
+} from "@/lib/reports";
 import { ORDER_STATES, type Order, type OrderState } from "@/lib/types";
 import { NewOrderButton } from "./new-order-button";
 import { OrderFilters } from "./order-filters";
@@ -28,19 +35,15 @@ export default async function OrdersPage({
     );
   }
 
-  const state = sp.state ?? "";
-  const company = sp.company ?? "";
-  const from = sp.from ?? "";
-  const to = sp.to ?? "";
+  const filters = parseSalesFilters(sp);
   const page = Math.max(1, Number(sp.page) || 1);
   const rangeFrom = (page - 1) * PAGE_SIZE;
   const rangeTo = rangeFrom + PAGE_SIZE - 1;
 
-  let query = supabase.from("orders").select("*, companies(id, name)", { count: "exact" });
-  if (state) query = query.eq("state", state);
-  if (company) query = query.eq("company_id", company);
-  if (from) query = query.gte("order_date", from);
-  if (to) query = query.lte("order_date", to);
+  const query = applySalesFilters(
+    supabase.from("orders").select("*, companies(id, name)", { count: "exact" }),
+    filters
+  );
 
   const { data, count } = await query.order("created_at", { ascending: false }).range(rangeFrom, rangeTo);
   const orders = (data ?? []) as Order[];
@@ -50,14 +53,13 @@ export default async function OrdersPage({
   const { data: companyRows } = await supabase.from("companies").select("id, name").order("name");
   const companies = companyRows ?? [];
 
-  const hasFilters = Boolean(state || company || from || to);
+  const hasFilters = hasSalesFilters(filters);
+  // The export deliberately carries the filters but never `page`: a report covers
+  // every matching order, not the 20 rows currently on screen.
+  const exportQs = salesFilterQuery(filters);
 
   const pageHref = (p: number) => {
-    const params = new URLSearchParams();
-    if (state) params.set("state", state);
-    if (company) params.set("company", company);
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
+    const params = new URLSearchParams(exportQs);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `/orders?${qs}` : "/orders";
@@ -68,7 +70,12 @@ export default async function OrdersPage({
       <PageHeader
         title="Commandes"
         subtitle="Commandes revendeurs — de la création à la facturation"
-        action={<NewOrderButton companies={companies} />}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportPdfLink href={`/print/report/sales${exportQs ? `?${exportQs}` : ""}`} />
+            <NewOrderButton companies={companies} />
+          </div>
+        }
       />
 
       <OrderFilters companies={companies} />

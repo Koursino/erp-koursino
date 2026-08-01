@@ -15,11 +15,10 @@ const columnAccent: Record<string, string> = {
   cancelled: "bg-red-400",
 };
 
-export function PurchaseOrderKanban({
-  orders,
-}: {
-  orders: (PurchaseOrder & { total: number })[];
-}) {
+/** Colours are resolved server-side (the helper is server-only) and passed as plain strings. */
+export type KanbanOrder = PurchaseOrder & { total: number; colors: string[] };
+
+export function PurchaseOrderKanban({ orders }: { orders: KanbanOrder[] }) {
   const [, startTransition] = useTransition();
   const [optimisticOrders, applyMove] = useOptimistic(
     orders,
@@ -81,6 +80,12 @@ export function PurchaseOrderKanban({
                     <p className="mt-0.5 text-sm font-medium text-zinc-900">
                       {o.companies?.name ?? "Sans fournisseur"}
                     </p>
+                    {o.colors.length > 0 && (
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        {o.colors.slice(0, 3).join(" · ")}
+                        {o.colors.length > 3 && ` +${o.colors.length - 3}`}
+                      </p>
+                    )}
                     <div className="mt-2 flex items-center justify-between">
                       <span className="text-sm font-semibold text-zinc-800">
                         {fmtMoney(o.total, o.currency)}

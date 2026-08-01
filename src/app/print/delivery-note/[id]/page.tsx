@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BL_ELIGIBLE_STATES, ORDER_STATES, type Company, type Order, type OrderLine } from "@/lib/types";
-import { PrintButton } from "./print-button";
+import { loadColorLabels } from "@/lib/product-colors";
+import { PrintButton } from "@/components/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -51,12 +52,15 @@ export default async function DeliveryNotePrintPage({ params }: { params: Promis
     .order("position");
   const lines = (lineRows ?? []) as OrderLine[];
 
-  // Sales units live on the catalog (order lines snapshot price, not unit) — fetch them
-  // for display only.
+  // Sales units and colours live on the catalog (order lines snapshot price, not unit)
+  // — fetch them for display only.
   const productIds = [...new Set(lines.map((l) => l.product_id))];
-  const { data: productRows } = productIds.length
-    ? await supabase.from("products").select("id, unit").in("id", productIds)
-    : { data: [] };
+  const [{ data: productRows }, colorById] = await Promise.all([
+    productIds.length
+      ? supabase.from("products").select("id, unit").in("id", productIds)
+      : Promise.resolve({ data: [] }),
+    loadColorLabels(supabase, productIds),
+  ]);
   const unitById = new Map(
     ((productRows ?? []) as { id: string; unit: string }[]).map((p) => [p.id, p.unit])
   );
@@ -129,6 +133,7 @@ export default async function DeliveryNotePrintPage({ params }: { params: Promis
           <thead>
             <tr className="border-b-2 border-zinc-300 text-left text-xs uppercase tracking-wide text-zinc-500">
               <th className="py-2 pr-3 font-semibold">Désignation</th>
+              <th className="py-2 px-3 font-semibold">Couleur</th>
               <th className="py-2 px-3 text-right font-semibold">Qté commandée</th>
               <th className="py-2 px-3 text-right font-semibold">Qté livrée</th>
               <th className="py-2 pl-3 text-left font-semibold">Unité</th>
@@ -138,6 +143,7 @@ export default async function DeliveryNotePrintPage({ params }: { params: Promis
             {lines.map((l) => (
               <tr key={l.id} className="border-b border-zinc-100">
                 <td className="py-2 pr-3">{l.description}</td>
+                <td className="py-2 px-3 text-zinc-600">{colorById.get(l.product_id) ?? "—"}</td>
                 <td className="py-2 px-3 text-right tabular-nums text-zinc-500">
                   {fmtQty(Number(l.quantity))}
                 </td>
@@ -147,7 +153,7 @@ export default async function DeliveryNotePrintPage({ params }: { params: Promis
             ))}
             {lines.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-4 text-center text-zinc-400">
+                <td colSpan={5} className="py-4 text-center text-zinc-400">
                   Aucune ligne
                 </td>
               </tr>
@@ -155,7 +161,7 @@ export default async function DeliveryNotePrintPage({ params }: { params: Promis
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-zinc-300">
-              <td colSpan={2} className="py-3 pr-3 text-right font-medium text-zinc-500">
+              <td colSpan={3} className="py-3 pr-3 text-right font-medium text-zinc-500">
                 Total livré
               </td>
               <td className="py-3 px-3 text-right text-base font-bold text-zinc-900">
