@@ -4,20 +4,29 @@ import { Fragment, useMemo, useState, useTransition } from "react";
 import { Badge, Button, Card, EmptyState, Input, Label, Select, Textarea } from "@/components/ui";
 import { LineEditor, type ProductOption } from "@/components/line-editor";
 import { fmtDate, statusTone } from "@/lib/format";
-import { productLabel, type StockLevel, type StockTransfer, type Warehouse } from "@/lib/types";
+import {
+  productLabel,
+  type Driver,
+  type StockLevel,
+  type StockTransfer,
+  type Warehouse,
+} from "@/lib/types";
 import { createTransfer, updateTransfer, executeTransfer, cancelTransfer, deleteTransfer } from "./actions";
 
 type WarehouseOption = Pick<Warehouse, "id" | "code" | "name">;
+type DriverOption = Pick<Driver, "id" | "name">;
 export type LevelRow = Pick<StockLevel, "product_id" | "warehouse_id" | "quantity">;
 
 export function TransferList({
   transfers,
   warehouses,
+  drivers,
   products,
   levels,
 }: {
   transfers: StockTransfer[];
   warehouses: WarehouseOption[];
+  drivers: DriverOption[];
   products: ProductOption[];
   levels: LevelRow[];
 }) {
@@ -81,7 +90,11 @@ export function TransferList({
                     {isOpen && (
                       <tr>
                         <td colSpan={8} className="bg-zinc-50 px-5 py-4">
-                          <TransferDetail transfer={transfer} onEdit={() => setEditing(transfer)} />
+                          <TransferDetail
+                            transfer={transfer}
+                            drivers={drivers}
+                            onEdit={() => setEditing(transfer)}
+                          />
                         </td>
                       </tr>
                     )}
@@ -109,9 +122,19 @@ export function TransferList({
   );
 }
 
-function TransferDetail({ transfer, onEdit }: { transfer: StockTransfer; onEdit: () => void }) {
+function TransferDetail({
+  transfer,
+  drivers,
+  onEdit,
+}: {
+  transfer: StockTransfer;
+  drivers: DriverOption[];
+  onEdit: () => void;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // A transfer is a delivery between warehouses, so it carries a driver too.
+  const [driverId, setDriverId] = useState(drivers[0]?.id ?? "");
   const lines = transfer.stock_transfer_lines ?? [];
   const locked = transfer.status !== "draft";
 
@@ -160,9 +183,25 @@ function TransferDetail({ transfer, onEdit }: { transfer: StockTransfer; onEdit:
       <div className="mt-4 flex flex-wrap gap-2">
         {!locked && (
           <>
+            <div>
+              <Label htmlFor={`dr-${transfer.id}`}>Livreur</Label>
+              <Select
+                id={`dr-${transfer.id}`}
+                value={driverId}
+                onChange={(e) => setDriverId(e.target.value)}
+                className="w-56"
+              >
+                <option value="">— sélectionner —</option>
+                {drivers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <Button
-              disabled={pending || lines.length === 0}
-              onClick={run(() => executeTransfer(transfer.id))}
+              disabled={pending || lines.length === 0 || !driverId}
+              onClick={run(() => executeTransfer(transfer.id, driverId))}
             >
               {pending ? "Working…" : "Execute transfer"}
             </Button>

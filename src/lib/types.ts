@@ -58,11 +58,12 @@ export type Deal = {
 // Products (Catalogue Produits) — shared by Achats, Ventes and Stock.
 // ---------------------------------------------------------------------------
 
-// Product families. Managed as a fixed list in code (the DB column stays plain
-// `text`, so editing this list needs no migration). Drives the form category
-// select and the list filter.
-export const PRODUCT_CATEGORIES = ["Chaises", "Tables"] as const;
-export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+// Product families used to be a fixed list in code. Since migration 0010 they
+// are the values of the CATEGORY attribute, editable on /stock/attributes;
+// `products.category` is the denormalized mirror the database maintains.
+export const CATEGORY_ATTRIBUTE_CODE = "CATEGORY";
+/** Colour is the attribute that feeds the SKU and drives the variants of a reference. */
+export const COLOR_ATTRIBUTE_CODE = "COLOR";
 
 export type Product = {
   id: string;
@@ -70,7 +71,9 @@ export type Product = {
   sku: string;
   name: string;
   description: string | null;
-  category: string | null;
+  // Mirror of the CATEGORY attribute, maintained by the DB since 0010 — write
+  // the attribute value, never this column.
+  readonly category: string | null;
   photo_url: string | null;
   unit_price_ht: number;
   vat_rate: number;
@@ -90,6 +93,8 @@ export type Product = {
   purchase_price: number | null;
   min_stock: number;
   notes: string | null;
+  /** Articles sharing this id are colour variants of one commercial reference (0011). */
+  variant_group_id: string | null;
   created_at: string;
   updated_at: string;
   companies?: Pick<Company, "id" | "name" | "code"> | null;
@@ -128,6 +133,10 @@ export type ProductAttribute = {
   position: number;
   /** When true, the chosen value's code becomes a segment of the SKU. */
   in_sku: boolean;
+  /** When false, the attribute stays out of the variant label (case of CATEGORY). */
+  in_summary: boolean;
+  /** Values an article may carry: 1 for a plain attribute, 2 for COLOR (bicolour). */
+  max_values: number;
   is_required: boolean;
   is_active: boolean;
   created_at: string;
@@ -161,6 +170,49 @@ export type StockLevel = {
   warehouses?: Pick<Warehouse, "id" | "code" | "name"> | null;
 };
 
+// ---------------------------------------------------------------------------
+// Livraisons — bons de livraison numérotés et livreurs (migration 0012)
+// ---------------------------------------------------------------------------
+
+export type Driver = {
+  id: string;
+  name: string;
+  phone: string | null;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export const DELIVERY_KINDS = ["customer", "transfer"] as const;
+export type DeliveryKind = (typeof DELIVERY_KINDS)[number];
+
+export const DELIVERY_KIND_LABEL: Record<DeliveryKind, string> = {
+  customer: "Livraison client",
+  transfer: "Transfert",
+};
+
+export type DeliveryNote = {
+  id: string;
+  /** 001-DB/2026 for a customer delivery, 002-US-DB/2026 for a transfer. */
+  readonly reference: string;
+  kind: DeliveryKind;
+  order_id: string | null;
+  transfer_id: string | null;
+  from_warehouse_id: string;
+  to_warehouse_id: string | null;
+  driver_id: string;
+  delivered_at: string;
+  note: string | null;
+  created_at: string;
+  created_by: string | null;
+  drivers?: Pick<Driver, "id" | "name" | "phone"> | null;
+  from_warehouse?: Pick<Warehouse, "id" | "code" | "name"> | null;
+  to_warehouse?: Pick<Warehouse, "id" | "code" | "name"> | null;
+  orders?: Pick<Order, "id" | "reference" | "company_id"> | null;
+  stock_transfers?: Pick<StockTransfer, "id" | "reference"> | null;
+};
+
 export const MOVEMENT_REASONS = [
   "reception",
   "delivery",
@@ -180,6 +232,8 @@ export type StockMovement = {
   reason: MovementReason;
   purchase_order_id: string | null;
   order_id: string | null;
+  /** The bon de livraison this movement belongs to; null for receptions, adjustments and returns. */
+  delivery_id: string | null;
   note: string | null;
   created_at: string;
   created_by: string | null;

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, PageHeader, SetupNotice } from "@/components/ui";
-import type { Company, Deal, Order, ProductRef, Warehouse } from "@/lib/types";
+import type { Company, Deal, Driver, Order, ProductRef, Warehouse } from "@/lib/types";
 import { OrderList, type LevelRow } from "./sales-orders";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export default async function SalesOrdersPage() {
     );
   }
 
-  const [ordersRes, customersRes, warehousesRes, productsRes, dealsRes, levelsRes] =
+  const [ordersRes, customersRes, warehousesRes, driversRes, productsRes, dealsRes, levelsRes] =
     await Promise.all([
       supabase
         .from("orders")
@@ -28,6 +28,7 @@ export default async function SalesOrdersPage() {
         .order("created_at", { ascending: false }),
       supabase.from("companies").select("id, name").eq("is_customer", true).order("name"),
       supabase.from("warehouses").select("id, code, name").eq("is_active", true).order("name"),
+      supabase.from("drivers").select("id, name").eq("is_active", true).order("name"),
       supabase
         .from("products")
         .select("id, sku, name, attributes_summary")
@@ -45,6 +46,7 @@ export default async function SalesOrdersPage() {
   }));
   const customers = (customersRes.data ?? []) as Pick<Company, "id" | "name">[];
   const warehouses = (warehousesRes.data ?? []) as Pick<Warehouse, "id" | "code" | "name">[];
+  const drivers = (driversRes.data ?? []) as Pick<Driver, "id" | "name">[];
   const products = (productsRes.data ?? []) as ProductRef[];
   const deals = (dealsRes.data ?? []) as Pick<Deal, "id" | "title">[];
   const levels = (levelsRes.data ?? []) as LevelRow[];
@@ -62,7 +64,7 @@ export default async function SalesOrdersPage() {
             client
           </Link>{" "}
           et un{" "}
-          <Link href="/stock/products" className="font-medium underline">
+          <Link href="/products" className="font-medium underline">
             article
           </Link>
           .
@@ -72,6 +74,7 @@ export default async function SalesOrdersPage() {
         orders={orders}
         customers={customers}
         warehouses={warehouses}
+        drivers={drivers}
         products={products}
         deals={deals}
         levels={levels}

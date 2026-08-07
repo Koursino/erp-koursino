@@ -99,7 +99,7 @@ export default async function StockPage({
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Articles" value={products.length} href="/stock/products" />
+        <Stat label="Articles" value={products.length} href="/products" />
         <Stat label="Warehouses" value={warehouses.length} href="/stock/warehouses" />
         <Stat label="Units in stock" value={totalUnits} />
         <Stat

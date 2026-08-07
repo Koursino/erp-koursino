@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, PageHeader, SetupNotice } from "@/components/ui";
-import type { Product, StockTransfer, Warehouse } from "@/lib/types";
+import type { Driver, Product, StockTransfer, Warehouse } from "@/lib/types";
 import { TransferList, type LevelRow } from "./transfers";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export default async function TransfersPage() {
     );
   }
 
-  const [transfersRes, warehousesRes, productsRes, levelsRes] = await Promise.all([
+  const [transfersRes, warehousesRes, driversRes, productsRes, levelsRes] = await Promise.all([
     supabase
       .from("stock_transfers")
       .select(
@@ -29,6 +29,7 @@ export default async function TransfersPage() {
       )
       .order("created_at", { ascending: false }),
     supabase.from("warehouses").select("id, code, name").eq("is_active", true).order("name"),
+    supabase.from("drivers").select("id, name").eq("is_active", true).order("name"),
     supabase
       .from("products")
       .select("id, sku, name, attributes_summary")
@@ -41,6 +42,7 @@ export default async function TransfersPage() {
   // so the embedded shape is asserted here instead.
   const transfers = (transfersRes.data ?? []) as unknown as StockTransfer[];
   const warehouses = (warehousesRes.data ?? []) as Pick<Warehouse, "id" | "code" | "name">[];
+  const drivers = (driversRes.data ?? []) as Pick<Driver, "id" | "name">[];
   const products = (productsRes.data ?? []) as Pick<
     Product,
     "id" | "sku" | "name" | "attributes_summary"
@@ -65,6 +67,7 @@ export default async function TransfersPage() {
       <TransferList
         transfers={transfers}
         warehouses={warehouses}
+        drivers={drivers}
         products={products}
         levels={levels}
       />

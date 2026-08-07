@@ -1,14 +1,36 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader, SetupNotice } from "@/components/ui";
 import { ExportPdfLink } from "@/components/export-pdf-link";
+import { ViewToggle, parseView } from "@/components/view-toggle";
 import { loadColorLabels } from "@/lib/product-colors";
+import {
+  applyPurchaseFilters,
+  parsePurchaseFilters,
+  purchaseFilterQuery,
+  REPORT_ROW_LIMIT,
+} from "@/lib/reports";
 import type { PurchaseOrder, PurchaseOrderLine } from "@/lib/types";
 import { PurchaseOrderKanban } from "./po-kanban";
+import { PurchaseOrderFilters } from "./purchase-order-filters";
+import { PurchaseOrderList, parseDir, parseSort } from "./purchase-order-list";
 import { NewPurchaseOrderButton } from "./new-po-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function PurchaseOrdersPage() {
+export default async function PurchaseOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    view?: string;
+    status?: string;
+    supplier?: string;
+    from?: string;
+    to?: string;
+    sort?: string;
+    dir?: string;
+  }>;
+}) {
+  const sp = await searchParams;
   const supabase = await createClient();
   if (!supabase) {
     return (
@@ -19,13 +41,21 @@ export default async function PurchaseOrdersPage() {
     );
   }
 
+  const view = parseView(sp.view);
+  const filters = parsePurchaseFilters(sp);
+  const filterQuery = purchaseFilterQuery(filters);
+
   const [ordersRes, suppliersRes] = await Promise.all([
-    supabase
-      .from("purchase_orders")
-      .select(
-        "*, companies:supplier_id(id, name), purchase_order_lines(product_id, quantity, unit_price)"
-      )
-      .order("created_at", { ascending: false }),
+    applyPurchaseFilters(
+      supabase
+        .from("purchase_orders")
+        .select(
+          "*, companies:supplier_id(id, name), purchase_order_lines(product_id, quantity, unit_price)"
+        ),
+      filters
+    )
+      .order("created_at", { ascending: false })
+      .range(0, REPORT_ROW_LIMIT - 1),
     supabase.from("companies").select("id, name").eq("is_supplier", true).order("name"),
   ]);
 
@@ -67,20 +97,42 @@ export default async function PurchaseOrdersPage() {
     <>
       <PageHeader
         title="Bons de commande"
-        subtitle="Suivi des achats — glissez une carte entre les statuts (devis → confirmé → commandé → réceptionné → facturé)"
+        subtitle={
+          view === "kanban"
+            ? "Suivi des achats — glissez une carte entre les statuts (devis → confirmé → commandé → réceptionné → facturé)"
+            : "Suivi des achats — cliquez un en-tête de colonne pour trier"
+        }
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <ExportPdfLink href="/print/report/purchases" />
+            <ViewToggle view={view} basePath="/purchase-orders" query={filterQuery} />
+            <ExportPdfLink
+              href={
+                filterQuery ? `/print/report/purchases?${filterQuery}` : "/print/report/purchases"
+              }
+            />
             <NewPurchaseOrderButton suppliers={suppliers} />
           </div>
         }
       />
       {suppliers.length === 0 && (
         <p className="mb-4 text-sm text-amber-700">
-          Marquez d&apos;abord au moins une entreprise comme « supplier » dans Companies pour créer un achat.
+          Marquez d&apos;abord au moins une entreprise comme « fournisseur » dans Companies pour
+          créer un achat.
         </p>
       )}
-      <PurchaseOrderKanban orders={orders} />
+
+      <PurchaseOrderFilters suppliers={suppliers} />
+
+      {view === "list" ? (
+        <PurchaseOrderList
+          orders={orders}
+          sort={parseSort(sp.sort)}
+          dir={parseDir(sp.dir)}
+          query={filterQuery}
+        />
+      ) : (
+        <PurchaseOrderKanban orders={orders} />
+      )}
     </>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Badge, Card, EmptyState, PageHeader, SetupNotice, cn } from "@/components/ui";
+import { loadColorLabels } from "@/lib/product-colors";
 import type { SupplierCatalogEntry } from "@/lib/types";
 import { NewCatalogEntryButton, CatalogRowActions } from "./catalog-form";
 
@@ -18,7 +19,7 @@ export default async function CatalogPage({
   if (!supabase) {
     return (
       <>
-        <PageHeader title="Supplier catalog" />
+        <PageHeader title="Catalogue fournisseur" />
         <SetupNotice />
       </>
     );
@@ -31,7 +32,7 @@ export default async function CatalogPage({
     supabase.from("products").select("id, name, sku").eq("is_active", true).order("name"),
   ]);
   const suppliers = suppliersRes.data ?? [];
-  const products = productsRes.data ?? [];
+  const products = (productsRes.data ?? []) as { id: string; name: string; sku: string }[];
 
   let query = supabase
     .from("supplier_catalog")
@@ -41,15 +42,23 @@ export default async function CatalogPage({
   const { data } = await query;
   const entries = (data ?? []) as SupplierCatalogEntry[];
 
+  // A colour is an article of its own, so pricing a supplier line means picking
+  // the coloured article — show which one, here and in the form. Deactivated
+  // articles still appear on existing lines, hence the union.
+  const colorById = await loadColorLabels(supabase, [
+    ...new Set([...products.map((p) => p.id), ...entries.map((e) => e.product_id)]),
+  ]);
+  const productOptions = products.map((p) => ({ ...p, color: colorById.get(p.id) ?? null }));
+
   return (
     <>
       <PageHeader
-        title="Supplier catalog"
-        subtitle="What each supplier offers, at what price and lead time"
+        title="Catalogue fournisseur"
+        subtitle="Ce que chaque fournisseur nous propose, à quel prix d'achat et sous quel délai"
         action={
           <NewCatalogEntryButton
             suppliers={suppliers}
-            products={products}
+            products={productOptions}
             defaultSupplierId={supplierFilter}
           />
         }
@@ -57,8 +66,8 @@ export default async function CatalogPage({
 
       {suppliers.length === 0 ? (
         <EmptyState
-          title="No suppliers yet"
-          hint="Mark a company as “supplier” in Companies, and add products, before building the catalog."
+          title="Aucun fournisseur"
+          hint="Cochez « fournisseur » sur une société, et créez des articles, avant de bâtir le catalogue."
         />
       ) : (
         <>
@@ -70,7 +79,7 @@ export default async function CatalogPage({
                 !supplierFilter ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
               )}
             >
-              All suppliers
+              Tous les fournisseurs
             </Link>
             {suppliers.map((s) => (
               <Link
@@ -89,18 +98,22 @@ export default async function CatalogPage({
           </div>
 
           {entries.length === 0 ? (
-            <EmptyState title="No catalog entries" hint="Add the first product this supplier sells you." />
+            <EmptyState
+              title="Aucune ligne de catalogue"
+              hint="Ajoutez le premier article que ce fournisseur nous vend."
+            />
           ) : (
             <Card>
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500">
-                    <th className="px-5 py-3 font-medium">Product</th>
-                    {!supplierFilter && <th className="px-5 py-3 font-medium">Supplier</th>}
-                    <th className="px-5 py-3 font-medium">Supplier ref</th>
-                    <th className="px-5 py-3 font-medium">Unit price</th>
-                    <th className="px-5 py-3 font-medium">Lead time</th>
-                    <th className="px-5 py-3 font-medium">Min qty</th>
+                    <th className="px-5 py-3 font-medium">Article</th>
+                    <th className="px-5 py-3 font-medium">Couleur</th>
+                    {!supplierFilter && <th className="px-5 py-3 font-medium">Fournisseur</th>}
+                    <th className="px-5 py-3 font-medium">Réf. fournisseur</th>
+                    <th className="px-5 py-3 font-medium">Prix d&apos;achat</th>
+                    <th className="px-5 py-3 font-medium">Délai</th>
+                    <th className="px-5 py-3 font-medium">Qté mini</th>
                     <th className="px-5 py-3" />
                   </tr>
                 </thead>
@@ -110,8 +123,14 @@ export default async function CatalogPage({
                       <td className="px-5 py-3 font-medium">
                         <span className="flex items-center gap-2">
                           {e.products?.name ?? "—"}
-                          {e.is_preferred && <Badge tone="green">preferred</Badge>}
+                          {e.is_preferred && <Badge tone="green">préféré</Badge>}
                         </span>
+                        <span className="font-mono text-xs text-zinc-400">
+                          {e.products?.sku ?? ""}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-zinc-600">
+                        {(e.product_id && colorById.get(e.product_id)) || "—"}
                       </td>
                       {!supplierFilter && <td className="px-5 py-3 text-zinc-600">{e.companies?.name ?? "—"}</td>}
                       <td className="px-5 py-3 text-zinc-600">{e.supplier_ref ?? "—"}</td>
@@ -119,18 +138,18 @@ export default async function CatalogPage({
                         {e.unit_price != null ? (
                           <>
                             {fmtMoney(e.unit_price, e.currency)}
-                            <span className="text-zinc-400"> / {e.products?.unit ?? "unit"}</span>
+                            <span className="text-zinc-400"> / {e.products?.unit ?? "unité"}</span>
                           </>
                         ) : (
                           "—"
                         )}
                       </td>
                       <td className="px-5 py-3 text-zinc-600">
-                        {e.lead_time_days != null ? `${e.lead_time_days} d` : "—"}
+                        {e.lead_time_days != null ? `${e.lead_time_days} j` : "—"}
                       </td>
                       <td className="px-5 py-3 text-zinc-600">{e.min_order_qty}</td>
                       <td className="px-5 py-3">
-                        <CatalogRowActions entry={e} suppliers={suppliers} products={products} />
+                        <CatalogRowActions entry={e} suppliers={suppliers} products={productOptions} />
                       </td>
                     </tr>
                   ))}

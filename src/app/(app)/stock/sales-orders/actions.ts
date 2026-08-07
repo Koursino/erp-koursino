@@ -11,6 +11,7 @@ function revalidateAll() {
   revalidatePath("/stock/sales-orders");
   revalidatePath("/stock");
   revalidatePath("/stock/movements");
+  revalidatePath("/stock/deliveries");
 }
 
 function orderFromForm(fd: FormData) {
@@ -120,22 +121,27 @@ export async function confirmOrder(id: string) {
 
 /**
  * The ONLY way an order decrements stock. The database function checks
- * availability in the source warehouse, posts the delivery movements, updates
- * the per-line counters and derives the state (livree / en_preparation) — all
- * in one transaction. `lines` restricts the delivery to given quantities for
- * a partial shipment; null delivers everything still owed.
+ * availability in the source warehouse, opens the bon de livraison, posts the
+ * delivery movements against it, updates the per-line counters and derives the
+ * state (livree / en_preparation) — all in one transaction. `lines` restricts
+ * the delivery to given quantities for a partial shipment; null delivers
+ * everything still owed. The driver is mandatory (migration 0012).
  */
 export async function deliverOrder(
   id: string,
   warehouseId: string,
-  lines: { line_id: string; quantity: number }[] | null
+  lines: { line_id: string; quantity: number }[] | null,
+  driverId: string
 ) {
   const supabase = await createClient();
   if (!supabase) return { error: "Supabase not configured" };
+  if (!driverId) return { error: "Sélectionnez le livreur." };
+
   const { error } = await supabase.rpc("deliver_order", {
     p_order_id: id,
     p_warehouse_id: warehouseId,
     p_lines: lines,
+    p_driver_id: driverId,
   });
   revalidateAll();
   return { error: error?.message ?? null };

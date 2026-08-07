@@ -69,13 +69,19 @@ export async function updateTransfer(id: string, fd: FormData) {
 
 /**
  * Moves the stock: one outgoing movement in the source warehouse and one
- * incoming movement in the destination, in a single transaction. Refused if
- * the source does not hold enough.
+ * incoming movement in the destination, in a single transaction, under a bon
+ * de livraison numbered with both warehouses (002-US-DB/2026). Refused if the
+ * source does not hold enough, or without a driver (migration 0012).
  */
-export async function executeTransfer(id: string) {
+export async function executeTransfer(id: string, driverId: string) {
   const supabase = await createClient();
   if (!supabase) return { error: "Supabase not configured" };
-  const { error } = await supabase.rpc("execute_stock_transfer", { p_transfer_id: id });
+  if (!driverId) return { error: "Sélectionnez le livreur." };
+
+  const { error } = await supabase.rpc("execute_stock_transfer", {
+    p_transfer_id: id,
+    p_driver_id: driverId,
+  });
   revalidateAll();
   return { error: error?.message ?? null };
 }

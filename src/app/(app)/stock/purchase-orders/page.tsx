@@ -58,7 +58,7 @@ export default async function PurchaseOrdersPage() {
             entrepôt
           </Link>{" "}
           et un{" "}
-          <Link href="/stock/products" className="font-medium underline">
+          <Link href="/products" className="font-medium underline">
             article
           </Link>
           .

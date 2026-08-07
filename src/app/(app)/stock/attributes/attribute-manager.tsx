@@ -14,7 +14,7 @@ import {
 
 export function NewAttributeButton() {
   const [open, setOpen] = useState(false);
-  if (!open) return <Button onClick={() => setOpen(true)}>+ New attribute</Button>;
+  if (!open) return <Button onClick={() => setOpen(true)}>+ Nouvel attribut</Button>;
   return <AttributeFormOverlay onClose={() => setOpen(false)} />;
 }
 
@@ -34,15 +34,18 @@ export function AttributeCard({ attribute }: { attribute: ProductAttribute }) {
             {attribute.name}
             <span className="font-mono text-xs font-normal text-zinc-400">{attribute.code}</span>
           </h3>
-          <div className="mt-1 flex gap-1">
-            {attribute.in_sku ? <Badge tone="blue">in SKU</Badge> : <Badge>descriptive</Badge>}
-            {attribute.is_required && <Badge tone="amber">required</Badge>}
-            {!attribute.is_active && <Badge tone="red">inactive</Badge>}
+          <div className="mt-1 flex flex-wrap gap-1">
+            {attribute.in_sku ? <Badge tone="blue">dans le SKU</Badge> : <Badge>descriptif</Badge>}
+            {attribute.max_values > 1 && (
+              <Badge tone="blue">jusqu&apos;à {attribute.max_values} valeurs</Badge>
+            )}
+            {attribute.is_required && <Badge tone="amber">obligatoire</Badge>}
+            {!attribute.is_active && <Badge tone="red">inactif</Badge>}
           </div>
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => setEditing(true)}>
-            Edit
+            Modifier
           </Button>
           <Button
             variant="ghost"
@@ -50,7 +53,7 @@ export function AttributeCard({ attribute }: { attribute: ProductAttribute }) {
             onClick={() => {
               if (
                 confirm(
-                  `Delete attribute "${attribute.name}"? It is removed from every article and the SKUs are rebuilt.`
+                  `Supprimer l'attribut « ${attribute.name} » ? Il est retiré de tous les articles et les SKU sont reconstruits.`
                 )
               ) {
                 startTransition(async () => {
@@ -60,7 +63,7 @@ export function AttributeCard({ attribute }: { attribute: ProductAttribute }) {
               }
             }}
           >
-            Delete
+            Supprimer
           </Button>
         </div>
       </div>
@@ -69,7 +72,7 @@ export function AttributeCard({ attribute }: { attribute: ProductAttribute }) {
 
       <div className="mt-4">
         {values.length === 0 ? (
-          <p className="text-sm text-zinc-500">No values yet.</p>
+          <p className="text-sm text-zinc-500">Aucune valeur pour le moment.</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
             {values.map((value) => (
@@ -78,7 +81,7 @@ export function AttributeCard({ attribute }: { attribute: ProductAttribute }) {
           </ul>
         )}
         <Button variant="secondary" className="mt-3" onClick={() => setAddingValue(true)}>
-          + Add value
+          + Ajouter une valeur
         </Button>
       </div>
 
@@ -134,19 +137,19 @@ function AttributeFormOverlay({
   return (
     <Overlay>
       <h3 className="mb-4 text-base font-semibold">
-        {attribute ? "Edit attribute" : "New attribute"}
+        {attribute ? "Modifier l'attribut" : "Nouvel attribut"}
       </h3>
       <form action={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="name">Name *</Label>
-          <Input id="name" name="name" required placeholder="Size" defaultValue={attribute?.name} />
+          <Label htmlFor="name">Nom *</Label>
+          <Input id="name" name="name" required placeholder="Taille" defaultValue={attribute?.name} />
         </div>
         <div>
           <Label htmlFor="code">Code *</Label>
           <Input id="code" name="code" required placeholder="SIZE" defaultValue={attribute?.code} />
         </div>
         <div>
-          <Label htmlFor="position">Order</Label>
+          <Label htmlFor="position">Ordre</Label>
           <Input
             id="position"
             name="position"
@@ -154,9 +157,24 @@ function AttributeFormOverlay({
             step="1"
             defaultValue={attribute?.position ?? 0}
           />
-          <p className="mt-1 text-xs text-zinc-500">Order in forms and inside the SKU.</p>
+          <p className="mt-1 text-xs text-zinc-500">Ordre dans les formulaires et dans le SKU.</p>
         </div>
-        <div className="flex flex-col justify-end gap-2 pb-2 text-sm text-zinc-700">
+        <div>
+          <Label htmlFor="max_values">Valeurs par article</Label>
+          <Input
+            id="max_values"
+            name="max_values"
+            type="number"
+            min={1}
+            max={5}
+            step="1"
+            defaultValue={attribute?.max_values ?? 1}
+          />
+          <p className="mt-1 text-xs text-zinc-500">
+            1 = valeur unique. 2 pour la couleur : une valeur = couleur unique, deux = bicolore.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 pb-2 text-sm text-zinc-700 sm:col-span-2">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -164,7 +182,19 @@ function AttributeFormOverlay({
               defaultChecked={attribute?.in_sku}
               className="h-4 w-4 rounded border-zinc-300"
             />
-            Include in the SKU
+            Inclure dans le SKU
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="in_summary"
+              defaultChecked={attribute ? attribute.in_summary : true}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            Afficher dans le libellé de variante
+            <span className="text-xs text-zinc-500">
+              (« Chaise Aura · Noir/Blanc ») — à décocher pour un attribut de classement
+            </span>
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -173,7 +203,7 @@ function AttributeFormOverlay({
               defaultChecked={attribute?.is_required}
               className="h-4 w-4 rounded border-zinc-300"
             />
-            Required on every article
+            Obligatoire sur chaque article
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -182,11 +212,11 @@ function AttributeFormOverlay({
               defaultChecked={attribute ? attribute.is_active : true}
               className="h-4 w-4 rounded border-zinc-300"
             />
-            Active
+            Actif
           </label>
         </div>
         <p className="text-xs text-zinc-500 sm:col-span-2">
-          Changing the order or the SKU flag rebuilds the code of every affected article.
+          Modifier l&apos;ordre ou l&apos;option SKU reconstruit le code de tous les articles concernés.
         </p>
         {error && <p className="text-sm text-red-600 sm:col-span-2">{error}</p>}
         <FormActions pending={pending} onClose={onClose} />
@@ -219,19 +249,21 @@ function ValueFormOverlay({
 
   return (
     <Overlay>
-      <h3 className="mb-4 text-base font-semibold">{value ? "Edit value" : "New value"}</h3>
+      <h3 className="mb-4 text-base font-semibold">
+        {value ? "Modifier la valeur" : "Nouvelle valeur"}
+      </h3>
       <form action={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="label">Label *</Label>
-          <Input id="label" name="label" required placeholder="Black" defaultValue={value?.label} />
+          <Label htmlFor="label">Libellé *</Label>
+          <Input id="label" name="label" required placeholder="Noir" defaultValue={value?.label} />
         </div>
         <div>
-          <Label htmlFor="code">SKU code</Label>
-          <Input id="code" name="code" placeholder="BLK" defaultValue={value?.code} />
-          <p className="mt-1 text-xs text-zinc-500">Derived from the label when left empty.</p>
+          <Label htmlFor="code">Code SKU</Label>
+          <Input id="code" name="code" placeholder="NOIR" defaultValue={value?.code} />
+          <p className="mt-1 text-xs text-zinc-500">Déduit du libellé s&apos;il est laissé vide.</p>
         </div>
         <div>
-          <Label htmlFor="position">Order</Label>
+          <Label htmlFor="position">Ordre</Label>
           <Input
             id="position"
             name="position"
@@ -273,7 +305,11 @@ function DeleteValueButton({
       variant="ghost"
       className="text-red-600"
       onClick={() => {
-        if (confirm(`Delete value "${label}"? Articles already using it keep it — remove it there first.`)) {
+        if (
+          confirm(
+            `Supprimer la valeur « ${label} » ? Les articles qui l'utilisent la conservent — retirez-la d'abord chez eux.`
+          )
+        ) {
           startTransition(async () => {
             const result = await deleteAttributeValue(id);
             if (result.error) onError(result.error);
@@ -282,7 +318,7 @@ function DeleteValueButton({
         }
       }}
     >
-      Delete
+      Supprimer
     </Button>
   );
 }
@@ -307,10 +343,10 @@ function FormActions({
   return (
     <div className="flex gap-2 sm:col-span-2">
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save"}
+        {pending ? "Enregistrement…" : "Enregistrer"}
       </Button>
       <Button type="button" variant="secondary" onClick={onClose}>
-        Cancel
+        Annuler
       </Button>
       {extra && <span className="ml-auto">{extra}</span>}
     </div>

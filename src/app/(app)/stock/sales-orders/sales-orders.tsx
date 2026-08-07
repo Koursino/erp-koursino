@@ -10,6 +10,7 @@ import {
   productLabel,
   type Company,
   type Deal,
+  type Driver,
   type Order,
   type StockLevel,
   type Warehouse,
@@ -25,6 +26,7 @@ import {
 } from "./actions";
 
 type CustomerOption = Pick<Company, "id" | "name">;
+type DriverOption = Pick<Driver, "id" | "name">;
 type WarehouseOption = Pick<Warehouse, "id" | "code" | "name">;
 type DealOption = Pick<Deal, "id" | "title">;
 export type LevelRow = Pick<StockLevel, "product_id" | "warehouse_id" | "quantity">;
@@ -33,6 +35,7 @@ export function OrderList({
   orders,
   customers,
   warehouses,
+  drivers,
   products,
   deals,
   levels,
@@ -40,6 +43,7 @@ export function OrderList({
   orders: Order[];
   customers: CustomerOption[];
   warehouses: WarehouseOption[];
+  drivers: DriverOption[];
   products: ProductOption[];
   deals: DealOption[];
   levels: LevelRow[];
@@ -115,6 +119,7 @@ export function OrderList({
                           <OrderDetail
                             order={order}
                             warehouses={warehouses}
+                            drivers={drivers}
                             levels={levels}
                             onEdit={() => setEditing(order)}
                           />
@@ -149,17 +154,21 @@ export function OrderList({
 function OrderDetail({
   order,
   warehouses,
+  drivers,
   levels,
   onEdit,
 }: {
   order: Order;
   warehouses: WarehouseOption[];
+  drivers: DriverOption[];
   levels: LevelRow[];
   onEdit: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [warehouseId, setWarehouseId] = useState(order.warehouse_id ?? warehouses[0]?.id ?? "");
+  // Every delivery carries a driver — the database refuses one without.
+  const [driverId, setDriverId] = useState(drivers[0]?.id ?? "");
   // Per-line quantities for a partial delivery; blank means "all still owed".
   const [partial, setPartial] = useState<Record<string, string>>({});
 
@@ -191,7 +200,7 @@ function OrderDetail({
     const entries = Object.entries(partial)
       .map(([lineId, value]) => ({ line_id: lineId, quantity: Number(value) }))
       .filter((e) => Number.isFinite(e.quantity) && e.quantity > 0);
-    run(() => deliverOrder(order.id, warehouseId, entries.length > 0 ? entries : null))();
+    run(() => deliverOrder(order.id, warehouseId, entries.length > 0 ? entries : null, driverId))();
   }
 
   return (
@@ -308,9 +317,30 @@ function OrderDetail({
                 ))}
               </Select>
             </div>
-            <Button disabled={pending || !warehouseId} onClick={deliver}>
+            <div>
+              <Label htmlFor={`dr-${order.id}`}>Livreur</Label>
+              <Select
+                id={`dr-${order.id}`}
+                value={driverId}
+                onChange={(e) => setDriverId(e.target.value)}
+                className="w-56"
+              >
+                <option value="">— sélectionner —</option>
+                {drivers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button disabled={pending || !warehouseId || !driverId} onClick={deliver}>
               {pending ? "En cours…" : "Livrer (− stock)"}
             </Button>
+            {drivers.length === 0 && (
+              <p className="w-full text-sm text-amber-700">
+                Aucun livreur enregistré — créez-en un dans Stock → Livreurs avant de livrer.
+              </p>
+            )}
           </>
         )}
 

@@ -3,21 +3,16 @@
 import { useRef, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Input, Select } from "@/components/ui";
-import { PRODUCT_CATEGORIES } from "@/lib/types";
 
 // Search + filters, driven by URL search params so the list stays server-rendered
-// and the state is shareable/bookmarkable.
+// and the state is shareable/bookmarkable. `categories` comes from the CATEGORY
+// attribute — the list is user-managed on /stock/attributes, not hard-coded.
 export function ProductFilters({ categories }: { categories: string[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Fixed managed list ∪ any category already present in the data.
-  const options = Array.from(new Set([...PRODUCT_CATEGORIES, ...categories])).sort((a, b) =>
-    a.localeCompare(b, "fr")
-  );
 
   function apply(patch: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -49,7 +44,7 @@ export function ProductFilters({ categories }: { categories: string[] }) {
         className="max-w-[13rem]"
       >
         <option value="">Toutes les catégories</option>
-        {options.map((c) => (
+        {categories.map((c) => (
           <option key={c} value={c}>
             {c}
           </option>

@@ -10,6 +10,7 @@ MVP ERP built step by step. See `docs/adr-001-tech-stack.md` for the stack and c
 | Achats B | **Bons de commande** — purchase orders (statuts + kanban + PDF) | ✅ |
 | Ventes 1 | **Commandes revendeurs** — sales orders (lifecycle, auto totals, numbering, BL PDF) | ✅ |
 | 2 | **Stock** — warehouses, attributes & SKU, ledger, receptions, transfers, deliveries | ✅ |
+| 2b | **Livraisons** — numbered delivery notes (`001-DB/2026`), drivers, BL PDF | ✅ |
 | 3 | Supplier payments | planned |
 
 ## Stock module
@@ -30,9 +31,20 @@ SUPPLIER / MODEL / <attribute codes> / SEQUENCE      LY/CHAISE-AURA/NOIR/0001
 The supplier fragment is the company `code` (or the first 6 letters of its
 name) and the sequence is a running number per supplier.
 
-**Attributes** are user-managed (`/stock/attributes`). Couleur and Matière ship
-as defaults — colour feeds the SKU, material is descriptive — and you can add,
-rename, reorder or delete attributes and their allowed values.
+**Attributes** are user-managed (`/stock/attributes`). Catégorie, Couleur and
+Matière ship as defaults — colour feeds the SKU, material is descriptive, and
+the category is mirrored onto `products.category` by the database — and you can
+add, rename, reorder or delete attributes and their allowed values.
+
+An attribute declares how many values an article may carry (`max_values`).
+Couleur accepts two: one value is a plain colour, two make a **bicolour**
+article whose SKU segment reads `NOIR-BLC`.
+
+**A colour is an article.** On a reference, "Couleurs" lists the colours being
+sold; ticking one creates the matching article (its own SKU, price and stock
+level), unticking one deactivates it without touching its history. Variants of
+a reference share a `variant_group_id` and are grouped together in the
+catalogue.
 
 **Stock is always counted per warehouse**, and only ever changes through four
 paths:
@@ -50,6 +62,20 @@ stock. `stock_movements` is an append-only ledger and the single source of
 truth; `stock_levels` is a cache maintained by trigger, and stock can never go
 negative.
 
+## Delivery notes
+
+Delivering an order and executing a transfer both open a **bon de livraison**
+and require a driver (`/stock/drivers`). One yearly counter numbers them all,
+restarting at `001` each January:
+
+```
+001-DB/2026       1st delivery of 2026, shipped from warehouse DB
+002-US-DB/2026    2nd delivery of 2026, moved from US to DB
+```
+
+Each movement carries its `delivery_id`, so the printed BL lists what actually
+shipped — a partial delivery prints its own quantities, not the ordered ones.
+
 ## Stack
 
 Next.js (App Router, TypeScript) · Supabase (PostgreSQL + Auth) · Tailwind CSS · Netlify
@@ -58,7 +84,7 @@ Next.js (App Router, TypeScript) · Supabase (PostgreSQL + Auth) · Tailwind CSS
 
 1. **Create a Supabase project** (in the Koursino Supabase account).
 2. **Apply the schema**: run the migrations in `supabase/migrations/` in
-   filename order (`0001` → `0009`). `0002` also creates a public Storage
+   filename order (`0001` → `0012`). `0002` also creates a public Storage
    bucket `product-photos`; if the SQL editor refuses to create the
    `storage.objects` policies, create that bucket and its policies from the
    Storage UI.
@@ -88,7 +114,7 @@ build settings work as-is.
 
 ```
 supabase/migrations/   SQL schema, one file per migration
-src/app/(app)/         Authenticated app pages (dashboard, pipeline, companies, …)
+src/app/(app)/         Authenticated app pages (dashboard, pipeline, catalogue, stock, …)
 src/app/login/         Sign-in page
 src/lib/supabase/      Supabase client helpers (browser / server / config)
 src/components/ui.tsx  Shared UI primitives

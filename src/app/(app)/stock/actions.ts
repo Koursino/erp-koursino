@@ -30,6 +30,6 @@ export async function adjustStock(fd: FormData) {
 
   revalidatePath("/stock");
   revalidatePath("/stock/movements");
-  revalidatePath("/stock/products");
+  revalidatePath("/products");
   return { error: error?.message ?? null };
 }

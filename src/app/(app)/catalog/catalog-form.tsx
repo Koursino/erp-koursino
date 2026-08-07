@@ -6,7 +6,8 @@ import type { Company, Product, SupplierCatalogEntry } from "@/lib/types";
 import { createCatalogEntry, updateCatalogEntry, deleteCatalogEntry } from "./actions";
 
 type SupplierOption = Pick<Company, "id" | "name">;
-type ProductOption = Pick<Product, "id" | "name" | "sku">;
+// The colour comes from the article's attributes, resolved server-side.
+type ProductOption = Pick<Product, "id" | "name" | "sku"> & { color?: string | null };
 
 export function NewCatalogEntryButton({
   suppliers,
@@ -23,7 +24,7 @@ export function NewCatalogEntryButton({
   if (!open) {
     return (
       <Button onClick={() => setOpen(true)} disabled={disabled}>
-        + Add catalog entry
+        + Nouvelle ligne
       </Button>
     );
   }
@@ -53,20 +54,20 @@ export function CatalogRowActions({
     <>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={() => setEditing(true)}>
-          Edit
+          Modifier
         </Button>
         <Button
           variant="ghost"
           className="text-red-600"
           onClick={() => {
-            if (confirm("Remove this catalog entry?")) {
+            if (confirm("Supprimer cette ligne de catalogue ?")) {
               startTransition(async () => {
                 await deleteCatalogEntry(entry.id);
               });
             }
           }}
         >
-          Delete
+          Supprimer
         </Button>
       </div>
       {editing && (
@@ -108,12 +109,12 @@ function CatalogFormOverlay({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-zinc-900/40 p-6 pt-16">
       <Card className="w-full max-w-2xl p-6">
-        <h3 className="mb-4 text-base font-semibold">{entry ? "Edit catalog entry" : "New catalog entry"}</h3>
+        <h3 className="mb-4 text-base font-semibold">{entry ? "Modifier la ligne" : "Nouvelle ligne de catalogue"}</h3>
         <form action={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="supplier_id">Supplier *</Label>
+            <Label htmlFor="supplier_id">Fournisseur *</Label>
             <Select id="supplier_id" name="supplier_id" required defaultValue={entry?.supplier_id ?? defaultSupplierId ?? ""}>
-              <option value="">— select —</option>
+              <option value="">— sélectionner —</option>
               {suppliers.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -122,23 +123,23 @@ function CatalogFormOverlay({
             </Select>
           </div>
           <div>
-            <Label htmlFor="product_id">Product *</Label>
+            <Label htmlFor="product_id">Article *</Label>
             <Select id="product_id" name="product_id" required defaultValue={entry?.product_id ?? ""}>
-              <option value="">— select —</option>
+              <option value="">— sélectionner —</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name}
+                  {[p.name, p.color].filter(Boolean).join(" · ")}
                   {p.sku ? ` (${p.sku})` : ""}
                 </option>
               ))}
             </Select>
           </div>
           <div>
-            <Label htmlFor="supplier_ref">Supplier reference</Label>
+            <Label htmlFor="supplier_ref">Référence fournisseur</Label>
             <Input id="supplier_ref" name="supplier_ref" defaultValue={entry?.supplier_ref ?? ""} />
           </div>
           <div>
-            <Label htmlFor="unit_price">Unit price</Label>
+            <Label htmlFor="unit_price">Prix d&apos;achat</Label>
             <Input
               id="unit_price"
               name="unit_price"
@@ -149,7 +150,7 @@ function CatalogFormOverlay({
             />
           </div>
           <div>
-            <Label htmlFor="currency">Currency</Label>
+            <Label htmlFor="currency">Devise</Label>
             <Select id="currency" name="currency" defaultValue={entry?.currency ?? "MAD"}>
               {["MAD", "EUR", "USD", "GBP"].map((c) => (
                 <option key={c} value={c}>
@@ -159,7 +160,7 @@ function CatalogFormOverlay({
             </Select>
           </div>
           <div>
-            <Label htmlFor="lead_time_days">Lead time (days)</Label>
+            <Label htmlFor="lead_time_days">Délai (jours)</Label>
             <Input
               id="lead_time_days"
               name="lead_time_days"
@@ -169,7 +170,7 @@ function CatalogFormOverlay({
             />
           </div>
           <div>
-            <Label htmlFor="min_order_qty">Min. order qty</Label>
+            <Label htmlFor="min_order_qty">Quantité minimum</Label>
             <Input
               id="min_order_qty"
               name="min_order_qty"
@@ -186,7 +187,7 @@ function CatalogFormOverlay({
               defaultChecked={entry?.is_preferred}
               className="h-4 w-4 rounded border-zinc-300"
             />
-            Preferred supplier for this product
+            Fournisseur préféré pour cet article
           </label>
           <div className="sm:col-span-2">
             <Label htmlFor="notes">Notes</Label>
@@ -195,16 +196,16 @@ function CatalogFormOverlay({
           {error && (
             <p className="text-sm text-red-600 sm:col-span-2">
               {error.includes("duplicate") || error.includes("unique")
-                ? "This supplier already has a catalog entry for this product. Edit the existing one instead."
+                ? "Ce fournisseur a déjà une ligne pour cet article — modifiez la ligne existante."
                 : error}
             </p>
           )}
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save"}
+              {pending ? "Enregistrement…" : "Enregistrer"}
             </Button>
             <Button type="button" variant="secondary" onClick={onClose}>
-              Cancel
+              Annuler
             </Button>
           </div>
         </form>

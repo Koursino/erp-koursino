@@ -2,7 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { ReportSheet } from "@/components/report-sheet";
 import { fmtDate, fmtMoney, fmtQty } from "@/lib/format";
 import { loadColorLabels } from "@/lib/product-colors";
-import { REPORT_ROW_LIMIT } from "@/lib/reports";
+import {
+  applyPurchaseFilters,
+  describePurchaseFilters,
+  parsePurchaseFilters,
+  REPORT_ROW_LIMIT,
+} from "@/lib/reports";
 import {
   PURCHASE_ORDER_STATUSES,
   purchaseOrderStatusLabel,
@@ -19,17 +24,34 @@ export const dynamic = "force-dynamic";
 
 type PoWithLines = PurchaseOrder & { purchase_order_lines: PurchaseOrderLine[] };
 
-export default async function PurchasesReportPrintPage() {
+export default async function PurchasesReportPrintPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; supplier?: string; from?: string; to?: string }>;
+}) {
   const supabase = await createClient();
   if (!supabase) {
     return <div className="p-10 text-sm text-zinc-600">Supabase n&apos;est pas configuré.</div>;
   }
 
-  const { data } = await supabase
-    .from("purchase_orders")
-    .select("*, companies:supplier_id(id, name), purchase_order_lines(*)")
-    .order("created_at", { ascending: false })
-    .range(0, REPORT_ROW_LIMIT - 1);
+  // Same filters as the /purchase-orders screen, so a printed report can never
+  // list rows the board hides.
+  const filters = parsePurchaseFilters(await searchParams);
+
+  const [{ data }, supplierRes] = await Promise.all([
+    applyPurchaseFilters(
+      supabase
+        .from("purchase_orders")
+        .select("*, companies:supplier_id(id, name), purchase_order_lines(*)"),
+      filters
+    )
+      .order("created_at", { ascending: false })
+      .range(0, REPORT_ROW_LIMIT - 1),
+    // Named even when the filter returns nothing, so the header never prints a UUID.
+    filters.supplier
+      ? supabase.from("companies").select("name").eq("id", filters.supplier).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   const orders = (data ?? []) as PoWithLines[];
   const truncated = orders.length >= REPORT_ROW_LIMIT;
@@ -73,7 +95,7 @@ export default async function PurchasesReportPrintPage() {
     <ReportSheet
       title="ÉTAT DES ACHATS"
       orientation="landscape"
-      criteria={["Tous les bons de commande fournisseurs"]}
+      criteria={describePurchaseFilters(filters, supplierRes.data?.name ?? undefined)}
       meta={[
         { label: "Bons de commande", value: orders.length },
         { label: "Lignes", value: lineCount },

@@ -6,7 +6,10 @@ import { int, str } from "@/lib/form";
 
 function revalidateAttributes() {
   revalidatePath("/stock/attributes");
-  revalidatePath("/stock/products");
+  // Categories and colours are attribute values now, so the catalogue and the
+  // stock screens both read from here.
+  revalidatePath("/products");
+  revalidatePath("/stock");
 }
 
 function attributeFromForm(fd: FormData) {
@@ -15,6 +18,10 @@ function attributeFromForm(fd: FormData) {
     name: str(fd, "name") ?? "",
     position: int(fd, "position"),
     in_sku: fd.get("in_sku") !== null,
+    in_summary: fd.get("in_summary") !== null,
+    // 1 = one value per article, 2 = bicolour. The database rejects anything
+    // above 5 and enforces the limit per article.
+    max_values: Math.min(5, Math.max(1, int(fd, "max_values", 1))),
     is_required: fd.get("is_required") !== null,
     is_active: fd.get("is_active") !== null,
   };

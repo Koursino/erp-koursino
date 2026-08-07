@@ -3,7 +3,13 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Badge, Card, PageHeader, SetupNotice } from "@/components/ui";
 import { formatDhs } from "@/lib/format";
-import { BL_ELIGIBLE_STATES, ORDER_STATES, type Order, type OrderLine } from "@/lib/types";
+import {
+  BL_ELIGIBLE_STATES,
+  ORDER_STATES,
+  type DeliveryNote,
+  type Order,
+  type OrderLine,
+} from "@/lib/types";
 import { OrderActions, OrderHeaderCard } from "./order-header";
 import { OrderLinesEditor } from "./order-lines-editor";
 
@@ -33,8 +39,13 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   if (!orderRow) notFound();
   const order = orderRow as Order;
 
-  const [{ data: lineRows }, { data: productRows }, { data: companyRows }, { data: dealRows }] =
-    await Promise.all([
+  const [
+    { data: lineRows },
+    { data: productRows },
+    { data: companyRows },
+    { data: dealRows },
+    { data: deliveryRows },
+  ] = await Promise.all([
       supabase.from("order_lines").select("*").eq("order_id", id).order("position"),
       supabase
         .from("products")
@@ -43,7 +54,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         .order("name"),
       supabase.from("companies").select("id, name").order("name"),
       supabase.from("deals").select("id, title").order("created_at", { ascending: false }),
+      supabase
+        .from("delivery_notes")
+        .select("id, reference")
+        .eq("order_id", id)
+        .order("reference"),
     ]);
+
+  const deliveries = (deliveryRows ?? []) as Pick<DeliveryNote, "id" | "reference">[];
 
   const lines = (lineRows ?? []) as OrderLine[];
   const products = (productRows ?? []) as ProductOption[];
@@ -66,8 +84,21 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <Badge tone={meta?.tone}>{meta?.label ?? order.state}</Badge>
           </div>
           <div className="flex flex-wrap items-start justify-end gap-2">
-            {/* A delivery note can be issued once the goods have shipped. */}
-            {BL_ELIGIBLE_STATES.includes(order.state) && (
+            {/* One button per real delivery: a partially delivered order has
+                several BL, each printing what actually shipped. */}
+            {deliveries.map((d) => (
+              <Link
+                key={d.id}
+                href={`/print/bl/${d.id}`}
+                target="_blank"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50"
+              >
+                BL {d.reference}
+              </Link>
+            ))}
+            {/* Fallback for orders marked delivered before the deliveries module
+                existed: they have no BL to print, only the ordered quantities. */}
+            {deliveries.length === 0 && BL_ELIGIBLE_STATES.includes(order.state) && (
               <Link
                 href={`/print/delivery-note/${order.id}`}
                 target="_blank"

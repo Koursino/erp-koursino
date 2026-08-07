@@ -1,5 +1,10 @@
 import { fmtDate } from "@/lib/format";
-import { ORDER_STATES, type Product, type Warehouse } from "@/lib/types";
+import {
+  ORDER_STATES,
+  purchaseOrderStatusLabel,
+  type Product,
+  type Warehouse,
+} from "@/lib/types";
 
 // Filtering rules shared by each "état" screen and its printable report, so a
 // PDF can never list rows the screen hides (or vice versa).
@@ -68,6 +73,60 @@ export function describeSalesFilters(f: SalesFilters, companyName?: string): str
     lines.push(`Période : ${f.from ? fmtDate(f.from) : "…"} → ${f.to ? fmtDate(f.to) : "…"}`);
   }
   return lines.length ? lines : ["Aucun filtre — toutes les commandes"];
+}
+
+// ---------------------------------------------------------------------------
+// État des achats (/purchase-orders)
+// ---------------------------------------------------------------------------
+
+export type PurchaseFilters = { status: string; supplier: string; from: string; to: string };
+
+export function parsePurchaseFilters(sp: {
+  status?: string;
+  supplier?: string;
+  from?: string;
+  to?: string;
+}): PurchaseFilters {
+  return {
+    status: sp.status ?? "",
+    supplier: sp.supplier ?? "",
+    from: sp.from ?? "",
+    to: sp.to ?? "",
+  };
+}
+
+/** Same rules on the kanban, the list and the printed report. See applySalesFilters. */
+export function applyPurchaseFilters<Q>(query: Q, f: PurchaseFilters): Q {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = query as any;
+  if (f.status) q = q.eq("status", f.status);
+  if (f.supplier) q = q.eq("supplier_id", f.supplier);
+  if (f.from) q = q.gte("order_date", f.from);
+  if (f.to) q = q.lte("order_date", f.to);
+  return q as Q;
+}
+
+export function purchaseFilterQuery(f: PurchaseFilters): string {
+  const params = new URLSearchParams();
+  if (f.status) params.set("status", f.status);
+  if (f.supplier) params.set("supplier", f.supplier);
+  if (f.from) params.set("from", f.from);
+  if (f.to) params.set("to", f.to);
+  return params.toString();
+}
+
+export const hasPurchaseFilters = (f: PurchaseFilters) =>
+  Boolean(f.status || f.supplier || f.from || f.to);
+
+/** Human-readable criteria, printed in the report header. */
+export function describePurchaseFilters(f: PurchaseFilters, supplierName?: string): string[] {
+  const lines: string[] = [];
+  if (f.status) lines.push(`Statut : ${purchaseOrderStatusLabel(f.status)}`);
+  if (f.supplier) lines.push(`Fournisseur : ${supplierName ?? f.supplier}`);
+  if (f.from || f.to) {
+    lines.push(`Période : ${f.from ? fmtDate(f.from) : "…"} → ${f.to ? fmtDate(f.to) : "…"}`);
+  }
+  return lines.length ? lines : ["Aucun filtre — tous les achats"];
 }
 
 // ---------------------------------------------------------------------------

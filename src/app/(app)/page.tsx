@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     { label: "Open deals", value: openDeals.length, href: "/pipeline" },
     { label: "Pipeline value", value: fmtMoney(pipelineValue), href: "/pipeline" },
     { label: "Won (total)", value: fmtMoney(wonValue), href: "/pipeline" },
-    { label: "Articles", value: stockProducts.length, href: "/stock/products" },
+    { label: "Articles", value: stockProducts.length, href: "/products" },
     {
       label: "Units in stock",
       value: [...unitsByProduct.values()].reduce((a, b) => a + b, 0),
