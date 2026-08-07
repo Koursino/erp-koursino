@@ -18,7 +18,7 @@ export default async function AttributesPage() {
 
   const { data } = await supabase
     .from("product_attributes")
-    .select("*, product_attribute_values(*)")
+    .select("*, product_attribute_values!product_attribute_values_attribute_id_fkey(*)")
     .order("position");
 
   const attributes = ((data ?? []) as ProductAttribute[]).map((a) => ({

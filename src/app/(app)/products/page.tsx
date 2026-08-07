@@ -61,7 +61,7 @@ export default async function ProductsPage({
     supabase.from("companies").select("id, name, code").eq("is_supplier", true).order("name"),
     supabase
       .from("product_attributes")
-      .select("*, product_attribute_values(*)")
+      .select("*, product_attribute_values!product_attribute_values_attribute_id_fkey(*)")
       .eq("is_active", true)
       .order("position"),
     supabase.from("stock_levels").select("product_id, quantity"),
@@ -129,6 +129,20 @@ export default async function ProductsPage({
         subtitle="Une couleur commercialisée est un article : son SKU, son prix et son stock lui appartiennent"
         action={<NewProductButton suppliers={suppliers} attributes={attributes} />}
       />
+
+      {/* A failed query used to render as "no attributes", which hid a broken
+          embed for good. Say it out loud instead. */}
+      {attributesRes.error && (
+        <Card className="mb-4 border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Les attributs (catégorie, couleur, matière) n&apos;ont pas pu être chargés, le
+          formulaire s&apos;affichera sans eux : {attributesRes.error.message}
+        </Card>
+      )}
+      {productsRes.error && (
+        <Card className="mb-4 border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Le catalogue n&apos;a pas pu être chargé : {productsRes.error.message}
+        </Card>
+      )}
 
       <ProductFilters categories={categories} />
 
